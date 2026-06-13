@@ -611,7 +611,168 @@
 
   .toast.show { opacity: 1; }
 
-  audio { display: none; }
+  .flag-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.72rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .flag-btn:hover { border-color: #ff9533; color: #ff9533; }
+  .flag-btn.flagged { border-color: #ff9533; background: rgba(255,149,51,0.1); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .modal-overlay.hidden { display: none; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px 16px 12px 12px;
+    padding: 1.25rem;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .modal-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 1rem; }
+
+  .flag-reasons { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
+
+  .flag-reason-btn {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+  }
+
+  .flag-reason-btn:hover { border-color: #ff9533; color: #ff9533; }
+
+  .modal-cancel {
+    width: 100%;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    padding: 0.6rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .modal-cancel:hover { border-color: var(--text); color: var(--text); }
+
+  /* ── DEV PANEL ── */
+  .dev-panel {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 300;
+    overflow-y: auto;
+    padding: 1.5rem 1.25rem;
+    display: none;
+  }
+
+  .dev-panel.visible { display: block; }
+
+  .dev-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 0.25rem;
+  }
+
+  .dev-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 1.5rem; }
+
+  .dev-section-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 0.6rem;
+    margin-top: 1.25rem;
+  }
+
+  .dev-flag-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.7rem 0.9rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.82rem;
+  }
+
+  .dev-flag-title { font-weight: 600; margin-bottom: 0.15rem; }
+  .dev-flag-meta { color: var(--muted); font-size: 0.74rem; }
+  .dev-flag-reason { color: #ff9533; font-size: 0.72rem; margin-top: 0.2rem; font-weight: 600; }
+
+  .dev-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    padding: 0.65rem 1.1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.15s;
+  }
+
+  .dev-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .dev-btn.danger:hover { border-color: #ff5c5c; color: #ff5c5c; }
+
+  .dev-close {
+    position: fixed;
+    top: 1rem;
+    right: 1.25rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 </style>
 </head>
 <body>
@@ -661,7 +822,7 @@
 <!-- ══ GAME SCREEN ══ -->
 <div class="screen" id="screen-game">
   <div class="app-header">
-    <div class="logo">🎤 Karaoke Knight</div>
+    <div class="logo" onclick="window._activateDevPanel()">🎤 Karaoke Knight</div>
     <div class="header-meta" id="game-header-meta"></div>
   </div>
   <div class="game-body" id="game-body"></div>
@@ -681,12 +842,44 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<!-- ══ FLAG MODAL ══ -->
+<div class="modal-overlay hidden" id="flag-modal">
+  <div class="modal">
+    <div class="modal-title">🚩 Flag this song</div>
+    <div class="modal-sub" id="flag-modal-sub">Why doesn't this fit?</div>
+    <div class="flag-reasons">
+      <button class="flag-reason-btn" onclick="submitFlag('Wrong genre')">Wrong genre</button>
+      <button class="flag-reason-btn" onclick="submitFlag('Junk title (remix/tribute/karaoke)')">Junk title (remix / tribute / karaoke)</button>
+      <button class="flag-reason-btn" onclick="submitFlag('Wrong era')">Wrong era</button>
+      <button class="flag-reason-btn" onclick="submitFlag('Artist overload')">Artist overload</button>
+      <button class="flag-reason-btn" onclick="submitFlag('Just doesn\'t belong')">Just doesn't belong</button>
+    </div>
+    <button class="modal-cancel" onclick="closeFlagModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- ══ DEV PANEL ══ -->
+<div class="dev-panel" id="dev-panel">
+  <button class="dev-close" onclick="closeDevPanel()">✕</button>
+  <div class="dev-title">⚙️ Dev Panel</div>
+  <div class="dev-sub">Flag data and export tools</div>
+
+  <div>
+    <button class="dev-btn" onclick="exportFlags()">⬇ Export flags as JSON</button>
+    <button class="dev-btn" onclick="copyFlags()">📋 Copy to clipboard</button>
+    <button class="dev-btn danger" onclick="clearFlags()">🗑 Clear all flags</button>
+  </div>
+
+  <div class="dev-section-label">Flagged Songs (<span id="flag-count">0</span>)</div>
+  <div id="dev-flag-list"><div style="color:var(--muted);font-size:0.82rem;">No flags yet.</div></div>
+</div>
+
 <audio id="audio-player" onended="onAudioEnded()"></audio>
 
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, collection, onSnapshot, setDoc, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBZfQUja53oq4KnwVFeYbkA083BdXVl7I8",
@@ -700,6 +893,22 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const gameRef = doc(db, "karaoke-knight", "session");
+const flagsCol = collection(db, "karaoke-knight-flags");
+
+// 7-tap dev panel activation
+let _tapTimes = [];
+window._activateDevPanel = () => {
+  const now = Date.now();
+  _tapTimes.push(now);
+  _tapTimes = _tapTimes.filter(t => now - t < 2500);
+  if (_tapTimes.length >= 7) {
+    _tapTimes = [];
+    openDevPanel();
+  }
+};
+
+// Flag modal state
+let _flagTargetIdx = null;
 
 // ── GENRES ──
 const GENRES = {
@@ -708,20 +917,20 @@ const GENRES = {
 };
 
 const GENRE_SEARCH_TERMS = {
-  "Pop": "pop hits",
-  "Rock": "rock hits",
-  "R&B": "r&b soul",
-  "Disney Classics": "disney songs",
-  "Country": "country hits",
-  "Hip-Hop/Rap": "hip hop rap",
-  "80s": "80s hits",
-  "90s": "90s hits",
-  "2010s": "2010s hits",
-  "Throwbacks": "throwback hits oldies",
-  "Salsa": "salsa",
-  "Merengue": "merengue",
-  "Boleros": "boleros romanticos",
-  "Reggaeton": "reggaeton"
+  "Pop":           ["pop hits", "top pop songs"],
+  "Rock":          ["classic rock hits", "rock anthems"],
+  "R&B":           ["r&b hits", "soul r&b classic"],
+  "Disney Classics":["disney classic songs", "disney animated songs"],
+  "Country":       ["country hits", "country classics"],
+  "Hip-Hop/Rap":   ["hip hop classics", "rap hits 2000s", "rap hits 90s"],
+  "80s":           ["80s pop hits", "80s rock hits"],
+  "90s":           ["90s pop hits", "90s hits playlist"],
+  "2010s":         ["2010s hits", "2010s pop hits"],
+  "Throwbacks":    ["classic oldies hits", "throwback 70s hits"],
+  "Salsa":         ["salsa clasica", "salsa hits celia cruz", "marc anthony salsa"],
+  "Merengue":      ["merengue clasico", "merengue hits juan luis guerra"],
+  "Boleros":       ["boleros romanticos clasicos", "boleros jose jose"],
+  "Reggaeton":     ["reggaeton clasico daddy yankee", "reggaeton hits don omar"]
 };
 
 const ERA_RANGES = {
@@ -838,8 +1047,13 @@ function scoreTrack(track, genre, artistCounts) {
 
   if (track.previewUrl) score += 10;
 
-  const killWords = ['karaoke','instrumental','tribute'];
+  // Hard kill — drop score to floor immediately
+  const killWords = ['karaoke','instrumental','tribute','cover version','made famous','originally performed','in the style of'];
   if (killWords.some(w => title.includes(w))) score -= 200;
+
+  // Soft junk penalties
+  const junkWords = ['remix','live','remaster','remastered','acoustic version','radio edit','single version','album version','demo','extended mix','club mix','live version','bonus track'];
+  if (junkWords.some(w => title.includes(w))) score -= 80;
 
   const year = track.releaseDate ? parseInt(track.releaseDate.slice(0,4)) : null;
   const era = ERA_RANGES[genre];
@@ -853,10 +1067,11 @@ function scoreTrack(track, genre, artistCounts) {
     }
   }
 
+  // Tighter artist flooding — penalize heavily to prevent domination
   const artistCount = artistCounts[artist] || 0;
-  if (artistCount === 1) score -= 15;
-  else if (artistCount === 2) score -= 35;
-  else if (artistCount >= 3) score -= 60;
+  if (artistCount === 1) score -= 25;
+  else if (artistCount === 2) score -= 55;
+  else if (artistCount >= 3) score -= 100;
 
   if (genre === 'Merengue') {
     if (title.includes('bachata')) score -= 70;
@@ -875,28 +1090,53 @@ function scoreTrack(track, genre, artistCounts) {
 }
 
 async function fetchAndScore(genre) {
-  const term = GENRE_SEARCH_TERMS[genre] || genre;
+  const terms = GENRE_SEARCH_TERMS[genre] || [genre];
   const country = GENRES.ES.includes(genre) ? 'MX' : 'US';
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=25&country=${country}`;
 
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    const tracks = data.results || [];
+  // Fetch from up to 2 search terms and merge
+  const fetchTerm = async (term) => {
+    try {
+      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=25&country=${country}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      return data.results || [];
+    } catch(e) { return []; }
+  };
 
-    const artistCounts = {};
-    tracks.forEach(t => {
-      const a = (t.artistName || '').toLowerCase();
-      artistCounts[a] = (artistCounts[a] || 0) + 1;
-    });
-
-    return tracks
-      .map(t => ({ ...t, _score: scoreTrack(t, genre, artistCounts) }))
-      .filter(t => t._score > -50)
-      .sort((a, b) => b._score - a._score);
-  } catch(e) {
-    return [];
+  const termSubset = terms.slice(0, 2);
+  const results = await Promise.all(termSubset.map(fetchTerm));
+  
+  // Merge and deduplicate by trackId
+  const seen = new Set();
+  const allTracks = [];
+  for (const batch of results) {
+    for (const t of batch) {
+      if (!seen.has(t.trackId)) {
+        seen.add(t.trackId);
+        allTracks.push(t);
+      }
+    }
   }
+
+  // Count artists across full pool
+  const artistCounts = {};
+  allTracks.forEach(t => {
+    const a = (t.artistName || '').toLowerCase();
+    artistCounts[a] = (artistCounts[a] || 0) + 1;
+  });
+
+  const scored = allTracks
+    .map(t => ({ ...t, _score: scoreTrack(t, genre, artistCounts) }))
+    .filter(t => t._score > -50)
+    .sort((a, b) => b._score - a._score);
+
+  // Hard artist cap: max 2 songs per artist in the final pool
+  const artistInPool = {};
+  return scored.filter(t => {
+    const a = (t.artistName || '').toLowerCase();
+    artistInPool[a] = (artistInPool[a] || 0) + 1;
+    return artistInPool[a] <= 2;
+  });
 }
 
 // ── RENDER ROUND ──
@@ -935,6 +1175,7 @@ function renderRound() {
           ${year ? `<div class="song-year">${year}</div>` : ''}
         </div>
         <div class="song-actions">
+          <button class="flag-btn" onclick="openFlagModal(${idx})" title="Flag song">🚩</button>
           ${song.previewUrl && !isPickedByOther ? `
             <button class="preview-btn ${isPreviewing ? 'playing' : ''}" onclick="togglePreview(${idx})" title="Preview">
               ${isPreviewing ? '⏸' : '▶'}
@@ -1104,6 +1345,103 @@ onSnapshot(gameRef, (snap) => {
     if (active === 'screen-game') renderRound();
   }
 });
+
+// ── FLAG SYSTEM ──
+window.openFlagModal = (idx) => {
+  _flagTargetIdx = idx;
+  const round = G.rounds[G.currentRound - 1];
+  const song = round?.shown[idx];
+  const sub = song ? `"${song.trackName}" · ${song.artistName}` : '';
+  document.getElementById('flag-modal-sub').textContent = sub;
+  document.getElementById('flag-modal').classList.remove('hidden');
+};
+
+window.closeFlagModal = () => {
+  document.getElementById('flag-modal').classList.add('hidden');
+  _flagTargetIdx = null;
+};
+
+window.submitFlag = async (reason) => {
+  const round = G.rounds[G.currentRound - 1];
+  const song = round?.shown[_flagTargetIdx];
+  if (!song) return closeFlagModal();
+
+  try {
+    await addDoc(flagsCol, {
+      trackId: song.trackId,
+      trackName: song.trackName,
+      artistName: song.artistName,
+      genre: G.currentGenre,
+      reason,
+      score: song._score ?? null,
+      flaggedAt: Date.now()
+    });
+    showToast('Flagged — thanks! 🚩');
+  } catch(e) {
+    showToast('Could not save flag');
+  }
+  closeFlagModal();
+};
+
+// ── DEV PANEL ──
+async function openDevPanel() {
+  document.getElementById('dev-panel').classList.add('visible');
+  await refreshDevPanel();
+}
+
+window.closeDevPanel = () => {
+  document.getElementById('dev-panel').classList.remove('visible');
+};
+
+async function refreshDevPanel() {
+  try {
+    const snap = await getDocs(flagsCol);
+    const flags = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    flags.sort((a, b) => b.flaggedAt - a.flaggedAt);
+
+    document.getElementById('flag-count').textContent = flags.length;
+
+    if (!flags.length) {
+      document.getElementById('dev-flag-list').innerHTML =
+        '<div style="color:var(--muted);font-size:0.82rem;">No flags yet.</div>';
+      return;
+    }
+
+    document.getElementById('dev-flag-list').innerHTML = flags.map(f => `
+      <div class="dev-flag-card">
+        <div class="dev-flag-title">${esc(f.trackName)}</div>
+        <div class="dev-flag-meta">${esc(f.artistName)} · ${esc(f.genre)} · Score: ${f.score ?? '?'}</div>
+        <div class="dev-flag-reason">🚩 ${esc(f.reason)}</div>
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('dev-flag-list').innerHTML =
+      '<div style="color:#ff5c5c;font-size:0.82rem;">Failed to load flags.</div>';
+  }
+}
+
+window.exportFlags = async () => {
+  const snap = await getDocs(flagsCol);
+  const flags = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const blob = new Blob([JSON.stringify(flags, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `karaoke-knight-flags-${Date.now()}.json`;
+  a.click();
+};
+
+window.copyFlags = async () => {
+  const snap = await getDocs(flagsCol);
+  const flags = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  await navigator.clipboard.writeText(JSON.stringify(flags, null, 2));
+  showToast('Copied to clipboard!');
+};
+
+window.clearFlags = async () => {
+  const snap = await getDocs(flagsCol);
+  await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'karaoke-knight-flags', d.id))));
+  await refreshDevPanel();
+  showToast('All flags cleared');
+};
 
 // ── UTILS ──
 function showScreen(name) {
