@@ -1118,6 +1118,10 @@ let _gameId = null;
 let _gameRef = null;
 let _unsubscribe = null;
 let _lastSavedAt = 0;
+// Unique token for this browser tab — used to determine if this device is host
+const _deviceToken = Math.random().toString(36).slice(2);
+// This device's player identity — set on start or join
+let _myPlayer = null;
 
 function generateGameId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no confusing chars
@@ -1140,18 +1144,30 @@ function setGameId(id) {
     const data = snap.data();
     if (!data?.state || !data?.updatedAt) return;
     if (data.updatedAt <= _lastSavedAt) return;
+
     const remote = JSON.parse(data.state);
-    const isOtherDevice =
-      remote.currentRound !== G.currentRound ||
-      remote.activePlayer !== G.activePlayer ||
-      JSON.stringify(remote.rounds?.at(-1)?.picks) !== JSON.stringify(G.rounds?.at(-1)?.picks);
-    if (isOtherDevice) {
+    const isHost = !remote.hostToken || remote.hostToken === _deviceToken;
+
+    // Non-host devices always sync from Firestore
+    // Host devices only sync if state differs (another device made a pick)
+    const picksDiffer = JSON.stringify(remote.rounds?.at(-1)?.picks) !==
+      JSON.stringify(G.rounds?.at(-1)?.picks);
+    const roundDiffers = remote.currentRound !== G.currentRound;
+    const playersDiffer = JSON.stringify(remote.players) !== JSON.stringify(G.players);
+
+    if (!isHost || picksDiffer || playersDiffer) {
+      const prevRound = G.currentRound;
       G = remote;
       const active = document.querySelector('.screen.active')?.id;
-      if (active === 'screen-game') renderRound();
-      else if (active === 'screen-setup' || active === 'screen-join') {
-        // Someone else started or advanced the game — sync silently
-        // Don't auto-navigate, let the user finish joining
+
+      if (roundDiffers && !isHost) {
+        // Host advanced — sync and re-render
+        if (active === 'screen-game') {
+          showLoading();
+          setTimeout(() => renderRound(), 300);
+        }
+      } else if (active === 'screen-game') {
+        renderRound();
       }
     }
   });
@@ -1392,8 +1408,10 @@ window.startGame = async () => {
   G.rounds = [];
   G.history = [];
   G.gameId = id;
+  G.hostToken = _deviceToken; // only this device can advance rounds
 
   await saveState();
+  _myPlayer = players[0]; // host plays as first player by default
   showScreen('game');
   await loadRound();
 };
@@ -1431,7 +1449,7 @@ window.joinGame = async () => {
 };
 
 window.joinAsPlayer = (name) => {
-  // Set this device's active player to the chosen name
+  _myPlayer = name;
   G.activePlayer = name;
   showScreen('game');
   renderRound();
@@ -1447,9 +1465,8 @@ window.confirmNewPlayer = async () => {
   const name = document.getElementById('new-player-name').value.trim();
   if (!name) return showToast('Enter your name');
   if (G.players.includes(name)) return joinAsPlayer(name);
-
-  // Add to player list and save
   G.players.push(name);
+  _myPlayer = name;
   G.activePlayer = name;
   await saveState();
   showScreen('game');
@@ -1475,7 +1492,7 @@ async function loadRound() {
   const genre = pickGenre();
   G.currentGenre = genre;
   G.usedGenres.push(genre);
-  G.activePlayer = G.players[0];
+  G.activePlayer = _myPlayer || G.players[0];
 
   showLoading();
 
@@ -1783,21 +1800,37 @@ function renderRound() {
   if (!round) return;
 
   const allPicked = G.players.every(p => round.picks[p]);
-  document.getElementById('next-btn').disabled = !allPicked;
+  const isHost = !G.hostToken || G.hostToken === _deviceToken;
+  const nextBtn = document.getElementById('next-btn');
+  const skipBtn = document.getElementById('skip-btn');
+
+  if (isHost) {
+    nextBtn.disabled = !allPicked;
+    nextBtn.textContent = G.currentRound >= G.totalRounds ? 'See Results →' : 'Next Round →';
+    skipBtn.style.display = '';
+  } else {
+    nextBtn.disabled = true;
+    nextBtn.textContent = allPicked ? 'Waiting for host…' : 'Next Round →';
+    skipBtn.style.display = 'none';
+  }
   document.getElementById('game-header-meta').innerHTML =
     `<div style="font-size:0.72rem;color:var(--accent);font-weight:700;letter-spacing:0.05em">${_gameId || ''}</div>
      <div>Round ${G.currentRound} / ${G.totalRounds} · ${G.players.length}p</div>`;
 
-  // Player tabs
+  // Player status indicators — not interactive, just show who's picked
   const tabs = G.players.map(p => {
     const hasPick = !!round.picks[p];
-    const isActive = p === G.activePlayer;
-    return `<button class="player-tab ${isActive ? 'active' : ''} ${hasPick ? 'picked' : ''}" onclick="setActivePlayer('${esc(p)}')">${esc(p)}${hasPick ? ' ✓' : ''}</button>`;
+    const isMe = p === _myPlayer;
+    return `<div class="player-tab ${isMe ? 'active' : ''} ${hasPick ? 'picked' : ''}" style="cursor:default">
+      ${esc(p)}${hasPick ? ' ✓' : ''}${isMe ? ' (you)' : ''}
+    </div>`;
   }).join('');
 
-  // Songs for active player
+  // Songs shown are always for THIS device's player only
+  const me = _myPlayer || G.players[0];
   const pickedSongIds = new Set(Object.values(round.picks).map(s => s.trackId));
-  const myPick = round.picks[G.activePlayer];
+  const myPick = round.picks[me];
+  const iAlreadyPicked = !!myPick;
 
   const songCards = round.shown.map((song, idx) => {
     const isPickedByMe = myPick && myPick.trackId === song.trackId;
@@ -1806,7 +1839,7 @@ function renderRound() {
     const year = song.releaseDate ? song.releaseDate.slice(0,4) : '';
 
     return `
-      <div class="song-card ${isPickedByMe ? 'selected' : ''} ${isPickedByOther ? 'disabled' : ''} ${isPreviewing ? 'previewing' : ''}">
+      <div class="song-card ${isPickedByMe ? 'selected' : ''} ${isPickedByOther || iAlreadyPicked && !isPickedByMe ? 'disabled' : ''} ${isPreviewing ? 'previewing' : ''}">
         <img class="song-art" src="${song.artworkUrl60 || ''}" alt="" />
         <div class="song-info">
           <div class="song-title">${esc(song.trackName)}</div>
@@ -1823,10 +1856,12 @@ function renderRound() {
               ${isPreviewing ? '⏸' : '▶'}
             </button>` : ''}
           ${isPickedByMe
-            ? `<span class="picked-badge">✓ Picked</span>`
+            ? `<span class="picked-badge">✓ Your pick</span>`
             : isPickedByOther
               ? `<span class="picked-badge" style="color:var(--muted)">Taken</span>`
-              : `<button class="pick-btn" onclick="pickSong(${idx})">Pick</button>`
+              : iAlreadyPicked
+                ? `<span class="picked-badge" style="color:var(--muted)">—</span>`
+                : `<button class="pick-btn" onclick="pickSong(${idx})">Pick</button>`
           }
         </div>
       </div>`;
@@ -1846,7 +1881,7 @@ function renderRound() {
       <div class="round-pill">Round ${G.currentRound} / ${G.totalRounds}</div>
     </div>
     <div class="player-tabs">${tabs}</div>
-    <div class="songs-label">${esc(G.activePlayer)}'s options</div>
+    <div class="songs-label">${iAlreadyPicked ? `You picked: ${esc(myPick.trackName)}` : `Pick a song, ${esc(me)}`}</div>
     ${songCards}
     <button class="show-more-btn" onclick="showMore()" ${!moreAvailable ? 'disabled' : ''}>
       ${!moreAvailable ? 'No more songs' : '↓ Show more options'}
@@ -1869,18 +1904,15 @@ window.setActivePlayer = (name) => {
 };
 
 window.pickSong = async (idx) => {
+  const me = _myPlayer || G.players[0];
   const round = G.rounds[G.currentRound - 1];
+  if (round.picks[me]) return; // already picked, ignore
   const song = round.shown[idx];
-  round.picks[G.activePlayer] = song;
-
-  // Auto-advance to next unpicked player
-  const next = G.players.find(p => !round.picks[p]);
-  if (next) G.activePlayer = next;
-
+  round.picks[me] = song;
   stopPreview();
   await saveState();
   renderRound();
-  showToast(`${G.activePlayer !== (next || G.activePlayer) ? G.activePlayer : 'Pick'} locked in! 🎤`);
+  showToast(`"${song.trackName}" locked in! 🎤`);
 };
 
 window.showMore = async () => {
@@ -1923,6 +1955,7 @@ function stopPreview() {
 }
 
 window.nextRound = async () => {
+  if (G.hostToken && G.hostToken !== _deviceToken) return; // only host advances
   const round = G.rounds[G.currentRound - 1];
 
   G.history.push({
@@ -1942,9 +1975,8 @@ window.nextRound = async () => {
 };
 
 window.skipGenre = async () => {
-  // Remove this round from usedGenres so it doesn't count against variety
+  if (G.hostToken && G.hostToken !== _deviceToken) return; // only host skips
   G.usedGenres = G.usedGenres.filter(g => g !== G.currentGenre);
-  // Don't increment round counter — reload with a new genre
   G.currentRound--;
   showToast(`Skipping ${G.currentGenre}…`);
   await loadRound();
