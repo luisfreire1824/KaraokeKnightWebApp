@@ -298,7 +298,27 @@
   .join-input:focus { border-color: var(--accent); }
   .join-input::placeholder { color: var(--muted); font-size: 0.85rem; letter-spacing: 0; font-family: 'Inter', sans-serif; font-weight: 400; }
 
-  .join-btn {
+  .join-player-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 0.9rem 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .join-player-card:hover { border-color: var(--accent); background: var(--accent-glow); }
+
+  .join-player-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .join-player-arrow { color: var(--muted); font-size: 1rem; }
     background: var(--surface2);
     border: 1.5px solid var(--border);
     color: var(--text);
@@ -1009,6 +1029,28 @@
 </div>
 
 <!-- ══ RESULTS SCREEN ══ -->
+<!-- ══ WHO ARE YOU SCREEN ══ -->
+<div class="screen" id="screen-join">
+  <div style="width:100%;max-width:420px;margin:2rem auto;padding:0 1.25rem;">
+    <div class="setup-title">👋 Who are you?</div>
+    <div class="setup-sub" id="join-game-sub">Pick your name to jump in.</div>
+
+    <div class="field-group" style="margin-top:1.5rem">
+      <div class="field-label">Existing Players</div>
+      <div id="join-player-list" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.75rem;"></div>
+      <button class="add-player-btn" onclick="joinAsNewPlayer()" style="margin-top:0.25rem">+ I'm someone new</button>
+    </div>
+
+    <div id="new-player-row" style="display:none;margin-top:0.75rem;">
+      <div class="field-label">Your Name</div>
+      <div class="join-row" style="margin-top:0.4rem">
+        <input class="text-input" id="new-player-name" placeholder="Enter your name" style="margin-bottom:0;flex:1" />
+        <button class="join-btn" onclick="confirmNewPlayer()">Join →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="screen" id="screen-results">
   <div class="results-card">
     <div class="results-title">🏆 Game Over!</div>
@@ -1107,10 +1149,9 @@ function setGameId(id) {
       G = remote;
       const active = document.querySelector('.screen.active')?.id;
       if (active === 'screen-game') renderRound();
-      else if (active === 'screen-setup') {
-        // Someone else started the game — join them
-        showScreen('game');
-        renderRound();
+      else if (active === 'screen-setup' || active === 'screen-join') {
+        // Someone else started or advanced the game — sync silently
+        // Don't auto-navigate, let the user finish joining
       }
     }
   });
@@ -1366,12 +1407,54 @@ window.joinGame = async () => {
     const ref = doc(db, "karaoke-knight-games", id);
     const snap = await getDoc(ref);
     if (!snap.exists()) return showToast(`Game ${id} not found`);
+
     setGameId(id);
     G = JSON.parse(snap.data().state);
-    showScreen('game');
-    renderRound();
-    showToast(`Joined ${id} 🎤`);
+
+    // Show who-are-you screen
+    document.getElementById('join-game-sub').textContent =
+      `Game ${id} · Round ${G.currentRound} of ${G.totalRounds}`;
+
+    const list = document.getElementById('join-player-list');
+    list.innerHTML = G.players.map(p => `
+      <div class="join-player-card" onclick="joinAsPlayer('${esc(p)}')">
+        <div class="join-player-name">${esc(p)}</div>
+        <div class="join-player-arrow">→</div>
+      </div>`).join('');
+
+    // Reset new player input
+    document.getElementById('new-player-row').style.display = 'none';
+    document.getElementById('new-player-name').value = '';
+
+    showScreen('join');
   } catch(e) { showToast('Could not join — check the code'); }
+};
+
+window.joinAsPlayer = (name) => {
+  // Set this device's active player to the chosen name
+  G.activePlayer = name;
+  showScreen('game');
+  renderRound();
+  showToast(`You're playing as ${name} 🎤`);
+};
+
+window.joinAsNewPlayer = () => {
+  document.getElementById('new-player-row').style.display = 'block';
+  document.getElementById('new-player-name').focus();
+};
+
+window.confirmNewPlayer = async () => {
+  const name = document.getElementById('new-player-name').value.trim();
+  if (!name) return showToast('Enter your name');
+  if (G.players.includes(name)) return joinAsPlayer(name);
+
+  // Add to player list and save
+  G.players.push(name);
+  G.activePlayer = name;
+  await saveState();
+  showScreen('game');
+  renderRound();
+  showToast(`Welcome, ${name}! 🎤`);
 };
 
 window.shareGame = async () => {
