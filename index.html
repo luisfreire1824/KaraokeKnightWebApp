@@ -795,7 +795,92 @@
 
   .toast.show { opacity: 1; }
 
-  .flag-btn {
+  .picks-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.9rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .picks-panel-header {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 0.6rem;
+  }
+
+  .picks-panel-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .picks-panel-row:last-child { margin-bottom: 0; }
+
+  .picks-panel-art {
+    width: 36px;
+    height: 36px;
+    border-radius: 5px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--surface2);
+  }
+
+  .picks-panel-info { flex: 1; min-width: 0; }
+
+  .picks-panel-song {
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .picks-panel-meta {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 0.1rem;
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  .picks-panel-player {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--accent2);
+    background: rgba(255,92,168,0.1);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+  }
+
+  .picks-panel-empty {
+    font-size: 0.82rem;
+    color: var(--muted);
+    text-align: center;
+    padding: 0.5rem 0;
+  }
+
+  .skip-round-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.35rem 0.7rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .skip-round-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .skip-round-btn.skipped { border-color: var(--accent2); color: var(--accent2); background: rgba(255,92,168,0.08); }
     background: none;
     border: 1px solid var(--border);
     color: var(--muted);
@@ -1009,6 +1094,33 @@
       <input class="join-input" id="join-input" placeholder="Enter game code" maxlength="7" />
       <button class="join-btn" onclick="joinGame()">Join →</button>
     </div>
+  </div>
+</div>
+
+<!-- ══ LINK JOIN SCREEN (for people arriving via shared link) ══ -->
+<div class="screen" id="screen-link-join">
+  <div style="width:100%;max-width:420px;margin:3rem auto;padding:0 1.25rem;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:0.75rem">🎤</div>
+    <div class="setup-title">You're invited!</div>
+    <div class="setup-sub">Someone shared a Karaoke Knight game with you.</div>
+
+    <div class="game-id-box" style="justify-content:center;margin:1.5rem 0;">
+      <div>
+        <div class="game-id-label">Game Code</div>
+        <div class="game-id-code" id="link-join-code">—</div>
+      </div>
+    </div>
+
+    <input type="hidden" id="link-join-input" />
+    <button class="start-btn" onclick="joinFromLink()" style="margin-top:0">
+      Join Game →
+    </button>
+
+    <div class="join-divider" style="margin:1.25rem 0">or</div>
+
+    <button class="add-player-btn" onclick="showScreen('setup')" style="width:100%">
+      Start a new game instead
+    </button>
   </div>
 </div>
 
@@ -1392,6 +1504,7 @@ window.startGame = async () => {
 
   const selectedGenres = getSelectedGenres();
   if (!selectedGenres.length) return showToast('Pick at least one genre!');
+  console.log('[KK] Starting game with genres:', selectedGenres);
 
   const rounds = parseInt(document.getElementById('rounds-display').textContent);
 
@@ -1414,6 +1527,13 @@ window.startGame = async () => {
   _myPlayer = players[0]; // host plays as first player by default
   showScreen('game');
   await loadRound();
+};
+
+window.joinFromLink = async () => {
+  const id = document.getElementById('link-join-input').value.trim().toUpperCase();
+  if (!id) return showToast('No game code found');
+  document.getElementById('join-input').value = id;
+  await joinGame();
 };
 
 window.joinGame = async () => {
@@ -1513,12 +1633,18 @@ async function loadRound() {
 }
 
 function pickGenre() {
-  const pool = G.selectedGenres || [...GENRES.EN, ...GENRES.ES];
+  const allGenres = [...GENRES.EN, ...GENRES.ES];
+  // Explicit length check — || would treat [] as falsy and fall back to all genres
+  const pool = (G.selectedGenres && G.selectedGenres.length > 0)
+    ? G.selectedGenres
+    : allGenres;
+
   let available = pool.filter(g => !G.usedGenres.includes(g));
   if (!available.length) {
     G.usedGenres = G.currentGenre ? [G.currentGenre] : [];
     available = pool.filter(g => g !== G.currentGenre);
   }
+  if (!available.length) available = pool; // last resort
   return available[Math.floor(Math.random() * available.length)];
 }
 
@@ -1799,47 +1925,59 @@ function renderRound() {
   const round = G.rounds[G.currentRound - 1];
   if (!round) return;
 
-  const allPicked = G.players.every(p => round.picks[p]);
   const isHost = !G.hostToken || G.hostToken === _deviceToken;
+  const me = _myPlayer || G.players[0];
+  const pickedSongIds = new Set(
+    Object.values(round.picks)
+      .filter(v => v && v.trackId)
+      .map(s => s.trackId)
+  );
+  const myPick = round.picks[me];
+  const iSkipped = round.skips?.[me];
+  const iActed = !!myPick || !!iSkipped;
+
+  // At least one player has acted (picked or skipped) → host can advance
+  const anyActed = G.players.some(p => round.picks[p] || round.skips?.[p]);
   const nextBtn = document.getElementById('next-btn');
   const skipBtn = document.getElementById('skip-btn');
 
   if (isHost) {
-    nextBtn.disabled = !allPicked;
+    nextBtn.disabled = !anyActed;
     nextBtn.textContent = G.currentRound >= G.totalRounds ? 'See Results →' : 'Next Round →';
     skipBtn.style.display = '';
   } else {
     nextBtn.disabled = true;
-    nextBtn.textContent = allPicked ? 'Waiting for host…' : 'Next Round →';
+    nextBtn.textContent = anyActed ? 'Waiting for host…' : 'Next Round →';
     skipBtn.style.display = 'none';
   }
+
   document.getElementById('game-header-meta').innerHTML =
     `<div style="font-size:0.72rem;color:var(--accent);font-weight:700;letter-spacing:0.05em">${_gameId || ''}</div>
      <div>Round ${G.currentRound} / ${G.totalRounds} · ${G.players.length}p</div>`;
 
-  // Player status indicators — not interactive, just show who's picked
+  // Player tabs — tappable for pass-around mode, shows active player
   const tabs = G.players.map(p => {
     const hasPick = !!round.picks[p];
-    const isMe = p === _myPlayer;
-    return `<div class="player-tab ${isMe ? 'active' : ''} ${hasPick ? 'picked' : ''}" style="cursor:default">
-      ${esc(p)}${hasPick ? ' ✓' : ''}${isMe ? ' (you)' : ''}
-    </div>`;
+    const hasSkip = !!round.skips?.[p];
+    const isMe = p === me;
+    const isActive = p === me;
+    return `<button class="player-tab ${isActive ? 'active' : ''} ${hasPick || hasSkip ? 'picked' : ''}"
+      onclick="switchActivePlayer('${esc(p)}')" title="${hasSkip ? 'Sitting out' : hasPick ? 'Picked' : 'Tap to pick for'}">
+      ${esc(p)}${hasPick ? ' ✓' : hasSkip ? ' —' : ''}
+    </button>`;
   }).join('');
 
-  // Songs shown are always for THIS device's player only
-  const me = _myPlayer || G.players[0];
-  const pickedSongIds = new Set(Object.values(round.picks).map(s => s.trackId));
-  const myPick = round.picks[me];
-  const iAlreadyPicked = !!myPick;
-
+  // Song cards
   const songCards = round.shown.map((song, idx) => {
     const isPickedByMe = myPick && myPick.trackId === song.trackId;
     const isPickedByOther = !isPickedByMe && pickedSongIds.has(song.trackId);
     const isPreviewing = _previewingIdx === idx;
     const year = song.releaseDate ? song.releaseDate.slice(0,4) : '';
+    // Disable non-picked cards only if I already acted (picked or skipped)
+    const dimmed = (iActed && !isPickedByMe) || isPickedByOther;
 
     return `
-      <div class="song-card ${isPickedByMe ? 'selected' : ''} ${isPickedByOther || iAlreadyPicked && !isPickedByMe ? 'disabled' : ''} ${isPreviewing ? 'previewing' : ''}">
+      <div class="song-card ${isPickedByMe ? 'selected' : ''} ${dimmed ? 'disabled' : ''} ${isPreviewing ? 'previewing' : ''}">
         <img class="song-art" src="${song.artworkUrl60 || ''}" alt="" />
         <div class="song-info">
           <div class="song-title">${esc(song.trackName)}</div>
@@ -1851,26 +1989,67 @@ function renderRound() {
         </div>
         <div class="song-actions">
           <button class="flag-btn" onclick="openFlagModal(${idx})" title="Flag song">🚩</button>
-          ${song.previewUrl && !isPickedByOther ? `
+          ${song.previewUrl ? `
             <button class="preview-btn ${isPreviewing ? 'playing' : ''}" onclick="togglePreview(${idx})" title="Preview">
               ${isPreviewing ? '⏸' : '▶'}
             </button>` : ''}
           ${isPickedByMe
-            ? `<span class="picked-badge">✓ Your pick</span>`
+            ? `<button class="pick-btn" style="background:var(--green-glow);border-color:var(--green);color:var(--green)" onclick="pickSong(${idx})">✓ Picked</button>`
             : isPickedByOther
               ? `<span class="picked-badge" style="color:var(--muted)">Taken</span>`
-              : iAlreadyPicked
-                ? `<span class="picked-badge" style="color:var(--muted)">—</span>`
-                : `<button class="pick-btn" onclick="pickSong(${idx})">Pick</button>`
+              : `<button class="pick-btn" onclick="pickSong(${idx})">Pick</button>`
           }
         </div>
       </div>`;
   }).join('');
 
+  // Picks panel
+  const picksHtml = G.players.map(p => {
+    const pick = round.picks[p];
+    const skipped = round.skips?.[p];
+    if (!pick && !skipped) return '';
+    if (skipped) return `
+      <div class="picks-panel-row">
+        <div class="picks-panel-art" style="display:flex;align-items:center;justify-content:center;font-size:1.1rem">—</div>
+        <div class="picks-panel-info">
+          <div class="picks-panel-song" style="color:var(--muted)">Sitting this one out</div>
+          <div class="picks-panel-meta"><span class="picks-panel-player">${esc(p)}</span></div>
+        </div>
+      </div>`;
+    return `
+      <div class="picks-panel-row">
+        <img class="picks-panel-art" src="${pick.artworkUrl60 || ''}" alt="" />
+        <div class="picks-panel-info">
+          <div class="picks-panel-song">${esc(pick.trackName)}</div>
+          <div class="picks-panel-meta">
+            <span>${esc(pick.artistName)}</span>
+            <span class="picks-panel-player">${esc(p)}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const anyPicks = G.players.some(p => round.picks[p] || round.skips?.[p]);
+  const picksCount = G.players.filter(p => round.picks[p] || round.skips?.[p]).length;
+
   const shownIds = new Set(round.shown.map(s => s.trackId));
   const moreAvailable =
     round.classicPool.some(t => !shownIds.has(t.trackId)) ||
     round.wowPool.some(t => !shownIds.has(t.trackId));
+
+  // Songs label + skip-round button
+  let songsSectionLabel = '';
+  if (iSkipped) {
+    songsSectionLabel = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem">
+      <div class="songs-label" style="margin-bottom:0">You're sitting this one out</div>
+      <button class="skip-round-btn" onclick="unskipRound()">Undo</button>
+    </div>`;
+  } else {
+    songsSectionLabel = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem">
+      <div class="songs-label" style="margin-bottom:0">${myPick ? `You picked: ${esc(myPick.trackName)}` : `Pick a song, ${esc(me)}`}</div>
+      ${!myPick ? `<button class="skip-round-btn ${iSkipped ? 'skipped' : ''}" onclick="skipRound()">Skip round</button>` : ''}
+    </div>`;
+  }
 
   document.getElementById('game-body').innerHTML = `
     <div class="round-banner">
@@ -1881,7 +2060,18 @@ function renderRound() {
       <div class="round-pill">Round ${G.currentRound} / ${G.totalRounds}</div>
     </div>
     <div class="player-tabs">${tabs}</div>
-    <div class="songs-label">${iAlreadyPicked ? `You picked: ${esc(myPick.trackName)}` : `Pick a song, ${esc(me)}`}</div>
+
+    ${anyPicks ? `
+    <details style="margin-bottom:0.75rem">
+      <summary style="cursor:pointer;font-size:0.72rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;list-style:none;display:flex;align-items:center;gap:0.4rem">
+        🎵 See picks (${picksCount})
+      </summary>
+      <div class="picks-panel" style="margin-top:0.5rem">
+        ${picksHtml || '<div class="picks-panel-empty">No picks yet</div>'}
+      </div>
+    </details>` : ''}
+
+    ${songsSectionLabel}
     ${songCards}
     <button class="show-more-btn" onclick="showMore()" ${!moreAvailable ? 'disabled' : ''}>
       ${!moreAvailable ? 'No more songs' : '↓ Show more options'}
@@ -1898,21 +2088,46 @@ function showLoading() {
 }
 
 // ── INTERACTIONS ──
-window.setActivePlayer = (name) => {
-  G.activePlayer = name;
+window.switchActivePlayer = (name) => {
+  // Pass-around mode: switch whose pick context we're viewing/editing
+  _myPlayer = name;
   renderRound();
 };
 
 window.pickSong = async (idx) => {
   const me = _myPlayer || G.players[0];
   const round = G.rounds[G.currentRound - 1];
-  if (round.picks[me]) return; // already picked, ignore
   const song = round.shown[idx];
+
+  // Allow changing selection — just overwrite
   round.picks[me] = song;
+  // Clear skip if they had one
+  if (round.skips?.[me]) delete round.skips[me];
+
   stopPreview();
   await saveState();
   renderRound();
-  showToast(`"${song.trackName}" locked in! 🎤`);
+  showToast(`"${song.trackName}" picked! 🎤`);
+};
+
+window.skipRound = async () => {
+  const me = _myPlayer || G.players[0];
+  const round = G.rounds[G.currentRound - 1];
+  if (!round.skips) round.skips = {};
+  round.skips[me] = true;
+  // Clear any pick they had
+  if (round.picks[me]) delete round.picks[me];
+  await saveState();
+  renderRound();
+  showToast(`${me} is sitting this one out`);
+};
+
+window.unskipRound = async () => {
+  const me = _myPlayer || G.players[0];
+  const round = G.rounds[G.currentRound - 1];
+  if (round.skips?.[me]) delete round.skips[me];
+  await saveState();
+  renderRound();
 };
 
 window.showMore = async () => {
@@ -1955,16 +2170,23 @@ function stopPreview() {
 }
 
 window.nextRound = async () => {
-  if (G.hostToken && G.hostToken !== _deviceToken) return; // only host advances
+  if (G.hostToken && G.hostToken !== _deviceToken) return;
   const round = G.rounds[G.currentRound - 1];
 
   G.history.push({
     round: G.currentRound,
     genre: round.genre,
-    picks: G.players.map(p => ({ player: p, song: round.picks[p] }))
+    picks: G.players.map(p => ({
+      player: p,
+      song: round.picks[p] || null,
+      skipped: !!round.skips?.[p]
+    }))
   });
 
   stopPreview();
+
+  // Reset active player to self for next round
+  _myPlayer = _myPlayer || G.players[0];
 
   if (G.currentRound >= G.totalRounds) {
     await saveState();
@@ -1984,15 +2206,26 @@ window.skipGenre = async () => {
 function showResults() {
   let html = '';
   G.history.forEach(r => {
-    const pickRows = r.picks.map(p => `
-      <div class="results-pick">
-        <img class="results-art" src="${p.song?.artworkUrl60 || ''}" alt="" />
-        <div class="results-pick-info">
-          <div class="results-pick-title">${esc(p.song?.trackName || '—')}</div>
-          <div class="results-pick-meta">${esc(p.song?.artistName || '')}</div>
-        </div>
-        <div class="results-singer">${esc(p.player)}</div>
-      </div>`).join('');
+    const pickRows = r.picks.map(p => {
+      if (p.skipped) return `
+        <div class="results-pick">
+          <div class="results-art" style="background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1rem;border-radius:5px;width:36px;height:36px;flex-shrink:0">—</div>
+          <div class="results-pick-info">
+            <div class="results-pick-title" style="color:var(--muted)">Sat this one out</div>
+          </div>
+          <div class="results-singer">${esc(p.player)}</div>
+        </div>`;
+      if (!p.song) return '';
+      return `
+        <div class="results-pick">
+          <img class="results-art" src="${p.song?.artworkUrl60 || ''}" alt="" />
+          <div class="results-pick-info">
+            <div class="results-pick-title">${esc(p.song?.trackName || '—')}</div>
+            <div class="results-pick-meta">${esc(p.song?.artistName || '')}</div>
+          </div>
+          <div class="results-singer">${esc(p.player)}</div>
+        </div>`;
+    }).join('');
 
     html += `
       <div class="results-round">
@@ -2134,15 +2367,19 @@ window.esc = (str = '') =>
 // Init genre grid on load
 initGenreGrid();
 
-// Auto-join if URL contains ?game=KK-XXXX
+// Auto-join if URL contains ?game=KK-XXXX — skip setup entirely
 (async () => {
   const params = new URLSearchParams(window.location.search);
   const gameParam = params.get('game');
   if (gameParam) {
-    const id = gameParam.toUpperCase();
-    document.getElementById('join-input').value = id;
-    // Show a hint so they know to tap Join
-    showToast(`Game ${id} detected — tap Join!`);
+    const id = gameParam.toUpperCase().startsWith('KK-')
+      ? gameParam.toUpperCase()
+      : `KK-${gameParam.toUpperCase()}`;
+
+    // Skip setup — go straight to join landing
+    showScreen('link-join');
+    document.getElementById('link-join-code').textContent = id;
+    document.getElementById('link-join-input').value = id;
   }
 })();
 
