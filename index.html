@@ -935,20 +935,78 @@ const GENRES = {
 };
 
 const GENRE_SEARCH_TERMS = {
-  "Pop":            ["pop hits", "top pop songs"],
-  "Rock":           ["classic rock hits", "rock anthems"],
-  "R&B":            ["r&b hits", "soul r&b classic"],
-  "Disney Classics":["disney classic songs", "disney animated songs"],
-  "Country":        ["country hits", "country classics"],
-  "Hip-Hop/Rap":    ["hip hop classics", "rap hits 2000s", "rap hits 90s"],
-  "80s":            ["80s pop hits", "80s rock hits"],
-  "90s":            ["90s pop hits", "90s hits playlist"],
-  "2010s":          ["2010s hits", "2010s pop hits"],
-  "Throwbacks":     ["classic oldies hits", "throwback 70s hits"],
-  "Salsa":          ["salsa tropical", "salsa romantica", "salsa dura clasica", "celia cruz salsa", "marc anthony salsa"],
-  "Merengue":       ["merengue dominicano", "merengue tropical", "merengue bailable", "merengue clasico orquesta"],
-  "Boleros":        ["boleros romanticos", "boleros clasicos mexicanos", "bolero trova", "jose jose boleros", "bolero latin"],
-  "Reggaeton":      ["reggaeton clasico", "perreo reggaeton", "reggaeton 2000s", "reggaeton underground", "reggaeton hits"]
+  "Pop": { terms: [
+    "pop hits", "top pop songs",
+    "michael jackson songs", "whitney houston songs", "mariah carey songs",
+    "madonna songs", "prince songs", "beyonce songs", "bruno mars songs"
+  ], countries: ["US"] },
+
+  "Rock": { terms: [
+    "classic rock hits", "rock anthems",
+    "bon jovi songs", "guns n roses songs", "led zeppelin songs",
+    "rock en español hits", "rock latino", "mana songs", "soda stereo songs"
+  ], countries: ["US","MX"] },
+
+  "R&B": { terms: [
+    "r&b hits", "soul r&b classic",
+    "aretha franklin songs", "stevie wonder songs", "al green songs"
+  ], countries: ["US"] },
+
+  "Disney Classics": { terms: [
+    "disney classic animated songs", "disney princess songs", "disney animated soundtrack"
+  ], countries: ["US"] },
+
+  "Country": { terms: [
+    "country hits", "country classics",
+    "johnny cash songs", "dolly parton songs", "kenny rogers songs"
+  ], countries: ["US"] },
+
+  "Hip-Hop/Rap": { terms: [
+    "hip hop classics", "rap hits 2000s",
+    "biggie smalls songs", "tupac songs", "eminem songs",
+    "jay z songs", "lil wayne songs", "kanye west songs",
+    "nas songs", "dmx songs", "50 cent songs", "snoop dogg songs"
+  ], countries: ["US"] },
+
+  "80s": { terms: [
+    "80s pop hits", "80s rock classics",
+    "michael jackson 80s", "prince 80s songs",
+    "80s hits español", "pop latino 80s"
+  ], countries: ["US","MX"] },
+
+  "90s": { terms: [
+    "90s pop hits", "90s rock hits",
+    "backstreet boys songs", "tlc songs", "no doubt songs",
+    "90s hits español", "pop latino 90s"
+  ], countries: ["US","MX"] },
+
+  "2010s": { terms: [
+    "2010s hits", "2010s pop hits"
+  ], countries: ["US"] },
+
+  "Throwbacks": { terms: [
+    "classic oldies hits", "throwback 70s hits"
+  ], countries: ["US"] },
+
+  "Salsa": { terms: [
+    "salsa tropical", "salsa romantica", "salsa dura", "salsa brava", "salsa clasica orquesta"
+  ], countries: ["MX"] },
+
+  "Merengue": { terms: [
+    "merengue juan luis guerra", "merengue wilfrido vargas",
+    "merengue johnny ventura", "merengue orquesta"
+  ], countries: ["MX"] },
+
+  "Boleros": { terms: [
+    "boleros romanticos mexico", "boleros clasicos agustin lara",
+    "bolero jorge negrete", "jose jose romantico", "armando manzanero boleros",
+    "julio jaramillo boleros", "segundo rosero boleros"
+  ], countries: ["MX"] },
+
+  "Reggaeton": { terms: [
+    "reggaeton clasico", "perreo reggaeton",
+    "reggaeton 2000s", "reggaeton underground", "reggaeton hits"
+  ], countries: ["MX"] }
 };
 
 const ERA_RANGES = {
@@ -1068,6 +1126,34 @@ const BLOCKED_TRACK_IDS = new Set([
   1725251068, // "Salsa Clasica" - Dionicio fortunato
   1595577872, // "Que Locura" - Salsa Clásica & Salsa Mix
   193156520,  // "El Último Adiós" - massive compilation
+  1309101716, // "Merengue Tropical" - Leon Bell
+  1373202535, // "Merengue Tropical" - Roberto Lorano
+  1704080282, // "Merengue Dominicano" - Luigui Bleand et al
+  1730668827, // "MERENGUE DOMINICANO" - La Inquieta Tipica
+  1797959693, // "Merengue Dominicano" - Eladio Romero Santos
+  1812116169, // "Merengue Bailable" - Musica Para Clases de Baile
+  1818267448, // "Merengue Tropical" - Xavier Cugat
+  1820535186, // flagged merengue
+  6765955654, // "Merengue Dominicano" - RamiroVegaOficial
+  1352566180, // "Salsa Romántica" - Cafe Latino Dance Club
+  1445260958, // "Salsa Romántica" - DJ Kamo
+  1610398326, // "salsa romántica" - un toque de clase sonido leo
+  1437321000, // "Está Rico" - Marc Anthony, Will Smith & Bad Bunny
+  160405914,  // "Ella y Yo" - Aventura & Don Omar (bachata, not salsa)
+  867644928,  // Carlos Vives wrong genre
+  1581506869, // Marc Anthony "Pa'lla Voy" - pop not salsa
+  1097132802, // "La Gozadera" - Gente de Zona
+  1203072877, // "Deja vu" - Prince Royce & Shakira
+  1443476645, // "Bolero" - Los Pericos
+  1500491200, // "Azul" - J Balvin (reggaeton in boleros)
+  1777374194, // "Boleros Románticos" - Pablo Paz Requinto
+  1789589049, // "Bolero Sangriento" - Buena Fe
+  589346508,  // "Bolero y Habaneras" - Silvio Rodríguez
+  1463096883, // Space Mountain instrumental - Disney
+  1471922084, // "80s Pop (Pop Mix)" - Lipstick
+  1525572845, // "80s Rock" - DJ Rythmik
+  1547198792, // "80's Rock" - Rocktopuss
+  1787943167, // "R&b" - Jaylon Ashaun junk title
 ]);
 
 const BLOCKED_ARTISTS = new Set([
@@ -1076,6 +1162,18 @@ const BLOCKED_ARTISTS = new Set([
   'salsa clasica & salsa mix',
   'el super show de los vaskez',
   'brigadier',
+  'cafe latino dance club',
+  'dj kamo',
+  'un toque de clase sonido leo',
+  'musica para clases de baile',
+  'leon bell',
+  'roberto lorano',
+  'ramiroVegaOficial',
+  'la inquieta tipica',
+  'lipstick',
+  'dj rythmik',
+  'rocktopuss',
+  'pablo paz requinto',
 ]);
 
 // Shuffle array in place (Fisher-Yates)
@@ -1087,19 +1185,34 @@ function shuffle(arr) {
   return arr;
 }
 
-// ── SCORING ──
 function scoreTrack(track, genre, artistCounts) {
   let score = 100;
   const title = (track.trackName || '').toLowerCase();
   const artist = (track.artistName || '').toLowerCase();
+  const genreLower = genre.toLowerCase();
 
   if (track.previewUrl) score += 10;
 
-  // Hard kill — drop score to floor immediately
+  // Hard kill — junk titles
   const killWords = ['karaoke','instrumental','tribute','cover version','made famous','originally performed','in the style of','popurri','popurrí','medley'];
   if (killWords.some(w => title.includes(w))) score -= 200;
 
-  // Soft junk penalties — standalone word matches
+  // Kill tracks whose title IS the genre name (e.g. "Merengue Dominicano", "Salsa Romántica", "Bolero")
+  const genreKillTitles = {
+    'Merengue': ['merengue dominicano','merengue tropical','merengue bailable','merengue clasico','merengue clásico'],
+    'Salsa':    ['salsa romantica','salsa romántica','salsa clasica','salsa clásica','salsa tropical'],
+    'Boleros':  ['boleros romanticos','boleros románticos','bolero y habaneras','bolero sangriento'],
+    'R&B':      ['r&b'],
+  };
+  if (genreKillTitles[genre]?.some(t => title === t || title.startsWith(t + ' (') || title.startsWith(t + ':') )) score -= 200;
+
+  // Disney: penalize instrumentals/scores (no vocals)
+  if (genre === 'Disney Classics') {
+    if (!track.previewUrl) score -= 100;
+    if (artist.includes('orchestra') || artist.includes('score') || artist.includes('giacchino') || artist.includes('instrumental')) score -= 150;
+  }
+
+  // Soft junk penalties
   const junkWords = ['remix','live','remaster','remastered','acoustic','radio edit','single version','album version','demo','extended mix','club mix','bonus track','versión','version','privé','prive'];
   if (junkWords.some(w => title.includes(w))) score -= 80;
 
@@ -1109,10 +1222,28 @@ function scoreTrack(track, genre, artistCounts) {
 
   // Cross-genre bleed: Juan Luis Guerra as featured on non-merengue track
   if (genre !== 'Merengue' && artist.includes('juan luis guerra') && title.includes('feat')) score -= 80;
-  // Penalize bachata/reggaeton artists showing up in Merengue
+
+  // Merengue-specific: block reggaeton/bachata/pop artists bleeding in
   if (genre === 'Merengue') {
-    const reggaetonBleed = ['wisin','yandel','ozuna','bad bunny','j balvin','reik','jesse','enrique iglesias','romeo santos'];
-    if (reggaetonBleed.some(a => artist.includes(a))) score -= 120;
+    const merengueBleeds = ['wisin','yandel','ozuna','bad bunny','j balvin','reik','jesse','enrique iglesias','romeo santos','prince royce','aventura','marc anthony','gente de zona','carlos vives'];
+    if (merengueBleeds.some(a => artist.includes(a))) score -= 120;
+  }
+
+  // Salsa-specific: block non-salsa artists
+  if (genre === 'Salsa') {
+    const salsaBleeds = ['bee gees','usher','aventura','don omar','bad bunny','will smith','j balvin','carlos vives','gente de zona'];
+    if (salsaBleeds.some(a => artist.includes(a))) score -= 120;
+  }
+
+  // Boleros-specific: block reggaeton/pop artists
+  if (genre === 'Boleros') {
+    const bolerosBleeds = ['j balvin','bad bunny','ozuna','wisin','yandel','los pericos','buena fe','silvio rodriguez'];
+    if (bolerosBleeds.some(a => artist.includes(a))) score -= 120;
+  }
+
+  // Hip-Hop/Rap genre specific
+  if (genre === 'Hip-Hop/Rap') {
+    if (title.includes('boom bap')) score -= 40;
   }
 
   const year = track.releaseDate ? parseInt(track.releaseDate.slice(0,4)) : null;
@@ -1127,37 +1258,23 @@ function scoreTrack(track, genre, artistCounts) {
     }
   }
 
-  // Tighter artist flooding — penalize heavily to prevent domination
+  // Tighter artist flooding
   const artistCount = artistCounts[artist] || 0;
   if (artistCount === 1) score -= 25;
   else if (artistCount === 2) score -= 55;
   else if (artistCount >= 3) score -= 100;
 
-  if (genre === 'Merengue') {
-    if (title.includes('bachata')) score -= 70;
-    if (['extended','mix','club'].some(w => title.includes(w))) score -= 20;
-  }
-
-  if (genre === 'Salsa') {
-    if (artist.includes('bee gees') || artist.includes('usher')) score -= 80;
-  }
-
-  if (genre === 'Hip-Hop/Rap') {
-    if (title.includes('boom bap')) score -= 40;
-  }
-
   return score;
 }
 
 async function fetchAndScore(genre) {
-  const terms = GENRE_SEARCH_TERMS[genre] || [genre];
-  const country = GENRES.ES.includes(genre) ? 'MX' : 'US';
-  // Spanish genres get all terms fetched for a bigger pool; EN genres use 2
+  const config = GENRE_SEARCH_TERMS[genre] || { terms: [genre], countries: ['US'] };
+  const { terms, countries } = config;
   const isES = GENRES.ES.includes(genre);
-  const termSubset = isES ? terms : terms.slice(0, 2);
   const limit = isES ? 50 : 25;
 
-  const fetchTerm = async (term) => {
+  // Fetch all term × country combos in parallel
+  const fetchTerm = async (term, country) => {
     try {
       const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=${limit}&country=${country}`;
       const res = await fetch(url);
@@ -1166,9 +1283,13 @@ async function fetchAndScore(genre) {
     } catch(e) { return []; }
   };
 
-  const results = await Promise.all(termSubset.map(fetchTerm));
+  const combos = [];
+  for (const country of countries) {
+    for (const term of terms) combos.push(fetchTerm(term, country));
+  }
+  const results = await Promise.all(combos);
 
-  // Merge and deduplicate by trackId, apply blocklists
+  // Merge, deduplicate, apply blocklists
   const seen = new Set();
   const allTracks = [];
   for (const batch of results) {
@@ -1188,18 +1309,17 @@ async function fetchAndScore(genre) {
     artistCounts[a] = (artistCounts[a] || 0) + 1;
   });
 
-  // Sort by score, then shuffle within score tiers for variety across games
   const scored = allTracks
     .map(t => ({ ...t, _score: scoreTrack(t, genre, artistCounts) }))
     .filter(t => t._score > -50)
     .sort((a, b) => b._score - a._score);
 
-  // Split into tiers: top-quality (>=80), mid (20-79), keep order within tier but shuffle each
+  // Shuffle within quality tiers for variety across games
   const tier1 = shuffle(scored.filter(t => t._score >= 80));
   const tier2 = shuffle(scored.filter(t => t._score >= 20 && t._score < 80));
   const tiered = [...tier1, ...tier2];
 
-  // Hard artist cap: max 2 songs per artist in the final pool
+  // Hard artist cap: max 2 songs per artist in final pool
   const artistInPool = {};
   return tiered.filter(t => {
     const a = (t.artistName || '').toLowerCase();
@@ -1403,19 +1523,31 @@ window.playAgain = () => showScreen('setup');
 // ── FIRESTORE SYNC ──
 async function saveState() {
   try {
-    await setDoc(gameRef, { state: JSON.stringify(G), updatedAt: Date.now() });
+    _lastSavedAt = Date.now();
+    await setDoc(gameRef, { state: JSON.stringify(G), updatedAt: _lastSavedAt });
   } catch(e) { console.warn('Save failed', e); }
 }
 
-// Real-time listener — sync state from Firestore to all connected devices
+// Real-time listener — sync state to all connected devices
+// Only apply remote state if it's genuinely from another device (different updatedAt)
+let _lastSavedAt = 0;
 onSnapshot(gameRef, (snap) => {
   if (!snap.exists()) return;
   const data = snap.data();
-  if (!data?.state) return;
+  if (!data?.state || !data?.updatedAt) return;
+
+  // Skip if this update was triggered by our own save
+  if (data.updatedAt <= _lastSavedAt) return;
 
   const remote = JSON.parse(data.state);
-  // Only apply if remote is newer (avoid overwriting own saves)
-  if (remote.currentRound !== G.currentRound || remote.activePlayer !== G.activePlayer) {
+  // Only apply if it looks like a different device's state
+  // (different active player or different round — not just our own echo)
+  const isOtherDevice =
+    remote.currentRound !== G.currentRound ||
+    remote.activePlayer !== G.activePlayer ||
+    JSON.stringify(remote.rounds?.at(-1)?.picks) !== JSON.stringify(G.rounds?.at(-1)?.picks);
+
+  if (isOtherDevice) {
     G = remote;
     const active = document.querySelector('.screen.active')?.id;
     if (active === 'screen-game') renderRound();
