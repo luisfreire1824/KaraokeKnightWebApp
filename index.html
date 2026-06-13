@@ -1293,6 +1293,14 @@ const BLOCKED_TRACK_IDS = new Set([
   804145428,  // Romeo Santos "Propuesta Indecente" in Boleros
   83090739,   // "Ven báilalo (Reggaeton Mix)"
   1444855250, // Daddy Yankee "Dura" in Salsa
+  // Latest flags
+  1445131398, // "Buttons" Snoop Dogg & Pussycat Dolls in Hip-Hop
+  1525559257, // "MOOD 4 EVA" Beyoncé/Jay-Z in Hip-Hop
+  190175970,  // "Heartbreaker" Mariah Carey feat Jay-Z in Hip-Hop
+  261707248,  // Beyoncé "Déjà-vu" in Hip-Hop
+  780519961,  // Beyoncé "Drunk in Love" in Hip-Hop
+  804145420,  // Romeo Santos "Odio feat Drake" in Hip-Hop
+  1698162327, // "Eminem" by Joeyy — title is artist name
 ]);
 
 const BLOCKED_ARTISTS = new Set([
@@ -1325,6 +1333,9 @@ function scoreTrack(track, genre, artistCounts) {
   // Hard kill — junk titles
   const killWords = ['karaoke','instrumental','tribute','cover version','made famous','originally performed','in the style of','popurri','popurrí','medley'];
   if (killWords.some(w => title.includes(w))) score -= 200;
+
+  // Kill tracks whose title IS a legend artist name (e.g. "Eminem" by Joeyy)
+  if ([...LEGEND_ARTISTS].some(l => title === l)) score -= 200;
 
   // Kill tracks whose title IS the genre name (e.g. "Merengue Dominicano", "Salsa Romántica", "Bolero")
   const genreKillTitles = {
@@ -1412,8 +1423,23 @@ async function fetchAndScore(genre) {
       const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=${limit}&country=${country}`;
       const res = await fetch(url);
       const data = await res.json();
-      // Tag each track with its position in results (0 = most popular)
-      return (data.results || []).map((t, i) => ({ ...t, _resultPos: i }));
+      const tracks = (data.results || []).map((t, i) => ({ ...t, _resultPos: i, _searchTerm: term }));
+
+      // If the search term looks like an artist name (not a genre phrase),
+      // only keep tracks where that artist is the PRIMARY artist (not just featured)
+      const termLower = term.toLowerCase();
+      const isArtistSearch = LEGEND_ARTISTS.has(termLower) ||
+        [...LEGEND_ARTISTS].some(l => termLower === l || termLower.includes(l));
+
+      if (isArtistSearch) {
+        return tracks.filter(t => {
+          const primaryArtist = (t.artistName || '').toLowerCase();
+          // Allow "Artist", "Artist & X", "Artist feat X" but not "Other feat Artist"
+          return primaryArtist.startsWith(termLower) ||
+            [...LEGEND_ARTISTS].some(l => termLower.includes(l) && primaryArtist.startsWith(l));
+        });
+      }
+      return tracks;
     } catch(e) { return []; }
   };
 
