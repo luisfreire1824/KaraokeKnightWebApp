@@ -1052,10 +1052,39 @@ function pickGenre() {
   else if (G.lang === 'ES') pool = [...GENRES.ES];
   else pool = [...GENRES.EN, ...GENRES.ES];
 
-  // Never repeat within a game — only reset if we've exhausted the entire pool
-  const available = pool.filter(g => !G.usedGenres.includes(g));
-  const source = available.length ? available : pool.filter(g => g !== G.currentGenre);
-  return source[Math.floor(Math.random() * source.length)];
+  // Prefer unused genres; if all used, reset and avoid immediate repeat
+  let available = pool.filter(g => !G.usedGenres.includes(g));
+  if (!available.length) {
+    G.usedGenres = G.currentGenre ? [G.currentGenre] : [];
+    available = pool.filter(g => g !== G.currentGenre);
+  }
+  return available[Math.floor(Math.random() * available.length)];
+}
+
+// ── BLOCKLISTS (from flag data) ──
+const BLOCKED_TRACK_IDS = new Set([
+  1783340852, // "Merengue Clásico" - brigadier
+  1819821592, // Celia Cruz Popurri medley
+  1725251068, // "Salsa Clasica" - Dionicio fortunato
+  1595577872, // "Que Locura" - Salsa Clásica & Salsa Mix
+  193156520,  // "El Último Adiós" - massive compilation
+]);
+
+const BLOCKED_ARTISTS = new Set([
+  'dionicio fortunato',
+  'salsa clásica & salsa mix',
+  'salsa clasica & salsa mix',
+  'el super show de los vaskez',
+  'brigadier',
+]);
+
+// Shuffle array in place (Fisher-Yates)
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 // ── SCORING ──
@@ -1070,13 +1099,21 @@ function scoreTrack(track, genre, artistCounts) {
   const killWords = ['karaoke','instrumental','tribute','cover version','made famous','originally performed','in the style of','popurri','popurrí','medley'];
   if (killWords.some(w => title.includes(w))) score -= 200;
 
-  // Soft junk penalties
-  const junkWords = ['remix','live','remaster','remastered','acoustic version','radio edit','single version','album version','demo','extended mix','club mix','live version','bonus track','versión','version'];
+  // Soft junk penalties — standalone word matches
+  const junkWords = ['remix','live','remaster','remastered','acoustic','radio edit','single version','album version','demo','extended mix','club mix','bonus track','versión','version','privé','prive'];
   if (junkWords.some(w => title.includes(w))) score -= 80;
 
-  // Too many featured artists in title — compilation/medley smell
-  const featMatches = (title.match(/,/g) || []).length;
-  if (featMatches >= 3) score -= 150;
+  // Too many featured artists — compilation smell
+  const commaCount = (title.match(/,/g) || []).length;
+  if (commaCount >= 3) score -= 150;
+
+  // Cross-genre bleed: Juan Luis Guerra as featured on non-merengue track
+  if (genre !== 'Merengue' && artist.includes('juan luis guerra') && title.includes('feat')) score -= 80;
+  // Penalize bachata/reggaeton artists showing up in Merengue
+  if (genre === 'Merengue') {
+    const reggaetonBleed = ['wisin','yandel','ozuna','bad bunny','j balvin','reik','jesse','enrique iglesias','romeo santos'];
+    if (reggaetonBleed.some(a => artist.includes(a))) score -= 120;
+  }
 
   const year = track.releaseDate ? parseInt(track.releaseDate.slice(0,4)) : null;
   const era = ERA_RANGES[genre];
@@ -1131,15 +1168,16 @@ async function fetchAndScore(genre) {
 
   const results = await Promise.all(termSubset.map(fetchTerm));
 
-  // Merge and deduplicate by trackId
+  // Merge and deduplicate by trackId, apply blocklists
   const seen = new Set();
   const allTracks = [];
   for (const batch of results) {
     for (const t of batch) {
-      if (!seen.has(t.trackId)) {
-        seen.add(t.trackId);
-        allTracks.push(t);
-      }
+      if (seen.has(t.trackId)) continue;
+      if (BLOCKED_TRACK_IDS.has(t.trackId)) continue;
+      if (BLOCKED_ARTISTS.has((t.artistName || '').toLowerCase())) continue;
+      seen.add(t.trackId);
+      allTracks.push(t);
     }
   }
 
@@ -1150,14 +1188,20 @@ async function fetchAndScore(genre) {
     artistCounts[a] = (artistCounts[a] || 0) + 1;
   });
 
+  // Sort by score, then shuffle within score tiers for variety across games
   const scored = allTracks
     .map(t => ({ ...t, _score: scoreTrack(t, genre, artistCounts) }))
     .filter(t => t._score > -50)
     .sort((a, b) => b._score - a._score);
 
+  // Split into tiers: top-quality (>=80), mid (20-79), keep order within tier but shuffle each
+  const tier1 = shuffle(scored.filter(t => t._score >= 80));
+  const tier2 = shuffle(scored.filter(t => t._score >= 20 && t._score < 80));
+  const tiered = [...tier1, ...tier2];
+
   // Hard artist cap: max 2 songs per artist in the final pool
   const artistInPool = {};
-  return scored.filter(t => {
+  return tiered.filter(t => {
     const a = (t.artistName || '').toLowerCase();
     artistInPool[a] = (artistInPool[a] || 0) + 1;
     return artistInPool[a] <= 2;
@@ -1398,8 +1442,10 @@ window.submitFlag = async (reason) => {
   const song = round?.shown[_flagTargetIdx];
   if (!song) return closeFlagModal();
 
+  // Use trackId+genre as doc ID to prevent duplicate flags for same song
+  const flagId = `${song.trackId}_${G.currentGenre.replace(/\W/g,'_')}`;
   try {
-    await addDoc(flagsCol, {
+    await setDoc(doc(db, 'karaoke-knight-flags', flagId), {
       trackId: song.trackId,
       trackName: song.trackName,
       artistName: song.artistName,
