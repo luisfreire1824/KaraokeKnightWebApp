@@ -465,6 +465,23 @@
     transition: opacity 0.15s;
   }
 
+  .skip-btn {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 0.82rem;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .skip-btn:hover { border-color: var(--accent); color: var(--accent); }
+
   .next-btn:hover { opacity: 0.88; }
   .next-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
@@ -827,6 +844,7 @@
   </div>
   <div class="game-body" id="game-body"></div>
   <div class="bottom-bar">
+    <button class="skip-btn" id="skip-btn" onclick="skipGenre()">↩ Skip Genre</button>
     <button class="next-btn" id="next-btn" onclick="nextRound()" disabled>Next Round →</button>
   </div>
 </div>
@@ -917,20 +935,20 @@ const GENRES = {
 };
 
 const GENRE_SEARCH_TERMS = {
-  "Pop":           ["pop hits", "top pop songs"],
-  "Rock":          ["classic rock hits", "rock anthems"],
-  "R&B":           ["r&b hits", "soul r&b classic"],
+  "Pop":            ["pop hits", "top pop songs"],
+  "Rock":           ["classic rock hits", "rock anthems"],
+  "R&B":            ["r&b hits", "soul r&b classic"],
   "Disney Classics":["disney classic songs", "disney animated songs"],
-  "Country":       ["country hits", "country classics"],
-  "Hip-Hop/Rap":   ["hip hop classics", "rap hits 2000s", "rap hits 90s"],
-  "80s":           ["80s pop hits", "80s rock hits"],
-  "90s":           ["90s pop hits", "90s hits playlist"],
-  "2010s":         ["2010s hits", "2010s pop hits"],
-  "Throwbacks":    ["classic oldies hits", "throwback 70s hits"],
-  "Salsa":         ["salsa clasica", "salsa hits celia cruz", "marc anthony salsa"],
-  "Merengue":      ["merengue clasico", "merengue hits juan luis guerra"],
-  "Boleros":       ["boleros romanticos clasicos", "boleros jose jose"],
-  "Reggaeton":     ["reggaeton clasico daddy yankee", "reggaeton hits don omar"]
+  "Country":        ["country hits", "country classics"],
+  "Hip-Hop/Rap":    ["hip hop classics", "rap hits 2000s", "rap hits 90s"],
+  "80s":            ["80s pop hits", "80s rock hits"],
+  "90s":            ["90s pop hits", "90s hits playlist"],
+  "2010s":          ["2010s hits", "2010s pop hits"],
+  "Throwbacks":     ["classic oldies hits", "throwback 70s hits"],
+  "Salsa":          ["salsa tropical", "salsa romantica", "salsa dura clasica", "celia cruz salsa", "marc anthony salsa"],
+  "Merengue":       ["merengue dominicano", "merengue tropical", "merengue bailable", "merengue clasico orquesta"],
+  "Boleros":        ["boleros romanticos", "boleros clasicos mexicanos", "bolero trova", "jose jose boleros", "bolero latin"],
+  "Reggaeton":      ["reggaeton clasico", "perreo reggaeton", "reggaeton 2000s", "reggaeton underground", "reggaeton hits"]
 };
 
 const ERA_RANGES = {
@@ -1034,8 +1052,9 @@ function pickGenre() {
   else if (G.lang === 'ES') pool = [...GENRES.ES];
   else pool = [...GENRES.EN, ...GENRES.ES];
 
+  // Never repeat within a game — only reset if we've exhausted the entire pool
   const available = pool.filter(g => !G.usedGenres.includes(g));
-  const source = available.length ? available : pool;
+  const source = available.length ? available : pool.filter(g => g !== G.currentGenre);
   return source[Math.floor(Math.random() * source.length)];
 }
 
@@ -1048,12 +1067,16 @@ function scoreTrack(track, genre, artistCounts) {
   if (track.previewUrl) score += 10;
 
   // Hard kill — drop score to floor immediately
-  const killWords = ['karaoke','instrumental','tribute','cover version','made famous','originally performed','in the style of'];
+  const killWords = ['karaoke','instrumental','tribute','cover version','made famous','originally performed','in the style of','popurri','popurrí','medley'];
   if (killWords.some(w => title.includes(w))) score -= 200;
 
   // Soft junk penalties
-  const junkWords = ['remix','live','remaster','remastered','acoustic version','radio edit','single version','album version','demo','extended mix','club mix','live version','bonus track'];
+  const junkWords = ['remix','live','remaster','remastered','acoustic version','radio edit','single version','album version','demo','extended mix','club mix','live version','bonus track','versión','version'];
   if (junkWords.some(w => title.includes(w))) score -= 80;
+
+  // Too many featured artists in title — compilation/medley smell
+  const featMatches = (title.match(/,/g) || []).length;
+  if (featMatches >= 3) score -= 150;
 
   const year = track.releaseDate ? parseInt(track.releaseDate.slice(0,4)) : null;
   const era = ERA_RANGES[genre];
@@ -1092,20 +1115,22 @@ function scoreTrack(track, genre, artistCounts) {
 async function fetchAndScore(genre) {
   const terms = GENRE_SEARCH_TERMS[genre] || [genre];
   const country = GENRES.ES.includes(genre) ? 'MX' : 'US';
+  // Spanish genres get all terms fetched for a bigger pool; EN genres use 2
+  const isES = GENRES.ES.includes(genre);
+  const termSubset = isES ? terms : terms.slice(0, 2);
+  const limit = isES ? 50 : 25;
 
-  // Fetch from up to 2 search terms and merge
   const fetchTerm = async (term) => {
     try {
-      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=25&country=${country}`;
+      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=${limit}&country=${country}`;
       const res = await fetch(url);
       const data = await res.json();
       return data.results || [];
     } catch(e) { return []; }
   };
 
-  const termSubset = terms.slice(0, 2);
   const results = await Promise.all(termSubset.map(fetchTerm));
-  
+
   // Merge and deduplicate by trackId
   const seen = new Set();
   const allTracks = [];
@@ -1297,7 +1322,14 @@ window.nextRound = async () => {
   }
 };
 
-// ── RESULTS ──
+window.skipGenre = async () => {
+  // Remove this round from usedGenres so it doesn't count against variety
+  G.usedGenres = G.usedGenres.filter(g => g !== G.currentGenre);
+  // Don't increment round counter — reload with a new genre
+  G.currentRound--;
+  showToast(`Skipping ${G.currentGenre}…`);
+  await loadRound();
+};
 function showResults() {
   let html = '';
   G.history.forEach(r => {
