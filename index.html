@@ -211,6 +211,109 @@
     transition: opacity 0.15s;
   }
 
+  .start-btn:hover { opacity: 0.88; }
+  .start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .game-id-box {
+    background: var(--surface2);
+    border: 1.5px solid var(--accent);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .game-id-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 0.2rem;
+  }
+
+  .game-id-code {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: 0.08em;
+  }
+
+  .share-btn {
+    background: var(--accent-glow);
+    border: 1.5px solid var(--accent);
+    color: var(--accent);
+    font-size: 1.1rem;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    margin-left: auto;
+  }
+
+  .share-btn:hover { background: var(--accent); color: white; }
+
+  .join-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.25rem 0;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+
+  .join-divider::before, .join-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .join-row { display: flex; gap: 0.5rem; }
+
+  .join-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 0.65rem 0.9rem;
+    border-radius: 8px;
+    outline: none;
+    text-transform: uppercase;
+    transition: border-color 0.15s;
+  }
+
+  .join-input:focus { border-color: var(--accent); }
+  .join-input::placeholder { color: var(--muted); font-size: 0.85rem; letter-spacing: 0; font-family: 'Inter', sans-serif; font-weight: 400; }
+
+  .join-btn {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .join-btn:hover { border-color: var(--accent); color: var(--accent); }
+
   .genre-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -878,7 +981,14 @@
       <div class="genre-grid" id="genre-grid"></div>
     </div>
 
-    <button class="start-btn" onclick="startGame()">Start Game</button>
+    <button class="start-btn" onclick="startGame()">🎮 Start New Game</button>
+
+    <div class="join-divider">or join an existing game</div>
+
+    <div class="join-row">
+      <input class="join-input" id="join-input" placeholder="Enter game code" maxlength="7" />
+      <button class="join-btn" onclick="joinGame()">Join →</button>
+    </div>
   </div>
 </div>
 
@@ -886,7 +996,10 @@
 <div class="screen" id="screen-game">
   <div class="app-header">
     <div class="logo" onclick="window._activateDevPanel()">🎤 Karaoke Knight</div>
-    <div class="header-meta" id="game-header-meta"></div>
+    <div style="display:flex;align-items:center;gap:0.6rem;">
+      <div class="header-meta" id="game-header-meta"></div>
+      <button class="share-btn" id="share-btn" onclick="shareGame()" title="Share game link">🔗</button>
+    </div>
   </div>
   <div class="game-body" id="game-body"></div>
   <div class="bottom-bar">
@@ -956,8 +1069,52 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const gameRef = doc(db, "karaoke-knight", "session");
 const flagsCol = collection(db, "karaoke-knight-flags");
+
+// ── GAME ID SYSTEM ──
+let _gameId = null;
+let _gameRef = null;
+let _unsubscribe = null;
+let _lastSavedAt = 0;
+
+function generateGameId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no confusing chars
+  let id = 'KK-';
+  for (let i = 0; i < 4; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
+function setGameId(id) {
+  _gameId = id;
+  _gameRef = doc(db, "karaoke-knight-games", id);
+  // Update URL so sharing is easy
+  const url = new URL(window.location.href);
+  url.searchParams.set('game', id);
+  window.history.replaceState({}, '', url.toString());
+  // Subscribe to real-time updates for this game
+  if (_unsubscribe) _unsubscribe();
+  _unsubscribe = onSnapshot(_gameRef, (snap) => {
+    if (!snap.exists()) return;
+    const data = snap.data();
+    if (!data?.state || !data?.updatedAt) return;
+    if (data.updatedAt <= _lastSavedAt) return;
+    const remote = JSON.parse(data.state);
+    const isOtherDevice =
+      remote.currentRound !== G.currentRound ||
+      remote.activePlayer !== G.activePlayer ||
+      JSON.stringify(remote.rounds?.at(-1)?.picks) !== JSON.stringify(G.rounds?.at(-1)?.picks);
+    if (isOtherDevice) {
+      G = remote;
+      const active = document.querySelector('.screen.active')?.id;
+      if (active === 'screen-game') renderRound();
+      else if (active === 'screen-setup') {
+        // Someone else started the game — join them
+        showScreen('game');
+        renderRound();
+      }
+    }
+  });
+}
 
 // 7-tap dev panel activation
 let _tapTimes = [];
@@ -1181,18 +1338,52 @@ window.startGame = async () => {
 
   const rounds = parseInt(document.getElementById('rounds-display').textContent);
 
+  // Generate fresh game ID
+  const id = generateGameId();
+  setGameId(id);
+
   G.players = players;
   G.totalRounds = rounds;
   G.selectedGenres = selectedGenres;
   G.currentRound = 0;
   G.usedGenres = [];
-  G.usedLegends = []; // track which legends have been shown this game
+  G.usedLegends = [];
   G.rounds = [];
   G.history = [];
+  G.gameId = id;
 
   await saveState();
   showScreen('game');
   await loadRound();
+};
+
+window.joinGame = async () => {
+  const raw = document.getElementById('join-input').value.trim().toUpperCase();
+  if (!raw) return showToast('Enter a game code');
+  const id = raw.startsWith('KK-') ? raw : `KK-${raw}`;
+  try {
+    const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const ref = doc(db, "karaoke-knight-games", id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return showToast(`Game ${id} not found`);
+    setGameId(id);
+    G = JSON.parse(snap.data().state);
+    showScreen('game');
+    renderRound();
+    showToast(`Joined ${id} 🎤`);
+  } catch(e) { showToast('Could not join — check the code'); }
+};
+
+window.shareGame = async () => {
+  const url = window.location.href;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: 'Karaoke Knight', text: `Join my Karaoke Knight game! Code: ${_gameId}`, url });
+    } else {
+      await navigator.clipboard.writeText(url);
+      showToast(`Link copied! Code: ${_gameId}`);
+    }
+  } catch(e) { showToast(`Game code: ${_gameId}`); }
 };
 
 // ── GAME ──
@@ -1511,7 +1702,8 @@ function renderRound() {
   const allPicked = G.players.every(p => round.picks[p]);
   document.getElementById('next-btn').disabled = !allPicked;
   document.getElementById('game-header-meta').innerHTML =
-    `Round ${G.currentRound} of ${G.totalRounds}<br/>${G.players.length} players`;
+    `<div style="font-size:0.72rem;color:var(--accent);font-weight:700;letter-spacing:0.05em">${_gameId || ''}</div>
+     <div>Round ${G.currentRound} / ${G.totalRounds} · ${G.players.length}p</div>`;
 
   // Player tabs
   const tabs = G.players.map(p => {
@@ -1702,37 +1894,12 @@ window.playAgain = () => showScreen('setup');
 
 // ── FIRESTORE SYNC ──
 async function saveState() {
+  if (!_gameRef) return;
   try {
     _lastSavedAt = Date.now();
-    await setDoc(gameRef, { state: JSON.stringify(G), updatedAt: _lastSavedAt });
+    await setDoc(_gameRef, { state: JSON.stringify(G), updatedAt: _lastSavedAt });
   } catch(e) { console.warn('Save failed', e); }
 }
-
-// Real-time listener — sync state to all connected devices
-// Only apply remote state if it's genuinely from another device (different updatedAt)
-let _lastSavedAt = 0;
-onSnapshot(gameRef, (snap) => {
-  if (!snap.exists()) return;
-  const data = snap.data();
-  if (!data?.state || !data?.updatedAt) return;
-
-  // Skip if this update was triggered by our own save
-  if (data.updatedAt <= _lastSavedAt) return;
-
-  const remote = JSON.parse(data.state);
-  // Only apply if it looks like a different device's state
-  // (different active player or different round — not just our own echo)
-  const isOtherDevice =
-    remote.currentRound !== G.currentRound ||
-    remote.activePlayer !== G.activePlayer ||
-    JSON.stringify(remote.rounds?.at(-1)?.picks) !== JSON.stringify(G.rounds?.at(-1)?.picks);
-
-  if (isOtherDevice) {
-    G = remote;
-    const active = document.querySelector('.screen.active')?.id;
-    if (active === 'screen-game') renderRound();
-  }
-});
 
 // ── FLAG SYSTEM ──
 window.openFlagModal = (idx) => {
@@ -1851,6 +2018,18 @@ window.esc = (str = '') =>
 
 // Init genre grid on load
 initGenreGrid();
+
+// Auto-join if URL contains ?game=KK-XXXX
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const gameParam = params.get('game');
+  if (gameParam) {
+    const id = gameParam.toUpperCase();
+    document.getElementById('join-input').value = id;
+    // Show a hint so they know to tap Join
+    showToast(`Game ${id} detected — tap Join!`);
+  }
+})();
 
 </script>
 </body>
