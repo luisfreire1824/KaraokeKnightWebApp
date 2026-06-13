@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🎤 Karaoke Knight</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0d0d14;
+    --surface: #16161f;
+    --surface2: #1e1e2e;
+    --border: #2a2a3d;
+    --accent: #c45cff;
+    --accent2: #ff5ca8;
+    --accent-glow: rgba(196,92,255,0.15);
+    --text: #f0eeff;
+    --muted: #7b7a96;
+    --green: #4cff91;
+    --green-glow: rgba(76,255,145,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── SCREENS ── */
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* ── HEADER ── */
+  .app-header {
+    background: linear-gradient(135deg, #1a0a2e 0%, #0d0d14 60%);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header-meta { font-size: 0.78rem; color: var(--muted); text-align: right; line-height: 1.4; }
+
+  /* ── SETUP SCREEN ── */
+  #screen-setup {
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.25rem;
+  }
+
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem 1.5rem;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .setup-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    margin-bottom: 0.3rem;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .setup-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 1.75rem; }
+
+  .field-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .field-group { margin-bottom: 1.25rem; }
+
+  .text-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.15s;
+    margin-bottom: 0.5rem;
+  }
+
+  .text-input:focus { border-color: var(--accent); }
+  .text-input::placeholder { color: var(--muted); }
+
+  .player-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .player-row .text-input { margin-bottom: 0; flex: 1; }
+
+  .remove-player-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 8px;
+    width: 36px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .remove-player-btn:hover { border-color: #ff5c5c; color: #ff5c5c; }
+
+  .add-player-btn {
+    background: none;
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    font-size: 0.82rem;
+    padding: 0.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.15s;
+  }
+
+  .add-player-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .seg-group { display: flex; gap: 0.4rem; }
+
+  .seg-btn {
+    flex: 1;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.55rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .seg-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  .rounds-row { display: flex; align-items: center; gap: 0.75rem; }
+
+  .rounds-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--accent);
+    min-width: 2.5rem;
+    text-align: center;
+  }
+
+  .round-btn {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    color: var(--text);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+
+  .round-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .start-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    color: white;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    padding: 0.85rem;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-top: 1.5rem;
+    transition: opacity 0.15s;
+  }
+
+  .start-btn:hover { opacity: 0.88; }
+  .start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── GAME SCREEN ── */
+  #screen-game { flex-direction: column; }
+
+  .game-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.1rem 5rem;
+    max-width: 560px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .round-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .round-genre {
+    flex: 1;
+  }
+
+  .round-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+  }
+
+  .genre-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .round-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 2rem;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* Player tabs */
+  .player-tabs {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+    padding-bottom: 0.1rem;
+  }
+
+  .player-tab {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.4rem 0.9rem;
+    border-radius: 2rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .player-tab.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  .player-tab.picked {
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--green-glow);
+  }
+
+  .player-tab.picked.active {
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--green-glow);
+  }
+
+  /* Song cards */
+  .songs-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 0.6rem;
+  }
+
+  .song-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.55rem;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    transition: all 0.18s;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .song-card:hover:not(.disabled) { border-color: var(--accent); }
+  .song-card.selected { border-color: var(--green); background: var(--green-glow); }
+  .song-card.disabled { opacity: 0.4; cursor: not-allowed; }
+  .song-card.previewing { border-color: var(--accent2); }
+
+  .song-art {
+    width: 46px;
+    height: 46px;
+    border-radius: 7px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--surface2);
+  }
+
+  .song-info { flex: 1; min-width: 0; }
+
+  .song-title {
+    font-weight: 600;
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .song-artist {
+    font-size: 0.76rem;
+    color: var(--muted);
+    margin-top: 0.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .song-year {
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-top: 0.1rem;
+  }
+
+  .song-actions { display: flex; gap: 0.4rem; flex-shrink: 0; align-items: center; }
+
+  .preview-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .preview-btn:hover { color: var(--accent2); border-color: var(--accent2); }
+  .preview-btn.playing { color: var(--accent2); border-color: var(--accent2); background: rgba(255,92,168,0.1); }
+
+  .pick-btn {
+    background: var(--accent-glow);
+    border: 1.5px solid var(--accent);
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0 0.75rem;
+    height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .pick-btn:hover { background: var(--accent); color: white; }
+
+  .picked-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--green);
+    white-space: nowrap;
+  }
+
+  .show-more-btn {
+    width: 100%;
+    background: none;
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    font-size: 0.82rem;
+    padding: 0.65rem;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.15s;
+    margin-top: 0.25rem;
+  }
+
+  .show-more-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .show-more-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* Next round / results bar */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 0.85rem 1.25rem;
+    display: flex;
+    gap: 0.75rem;
+    z-index: 50;
+  }
+
+  .next-btn {
+    flex: 1;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    color: white;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 0.95rem;
+    padding: 0.8rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .next-btn:hover { opacity: 0.88; }
+  .next-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── RESULTS SCREEN ── */
+  #screen-results {
+    align-items: center;
+    justify-content: flex-start;
+    padding: 2rem 1.25rem;
+  }
+
+  .results-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.75rem 1.5rem;
+    width: 100%;
+    max-width: 460px;
+    margin: 0 auto;
+  }
+
+  .results-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 0.25rem;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .results-sub { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.5rem; }
+
+  .results-round {
+    margin-bottom: 1.25rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+  }
+
+  .results-round-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 0.6rem;
+  }
+
+  .results-pick {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .results-pick:last-child { margin-bottom: 0; }
+
+  .results-art {
+    width: 36px;
+    height: 36px;
+    border-radius: 5px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  .results-pick-info { flex: 1; min-width: 0; }
+
+  .results-pick-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .results-pick-meta { font-size: 0.72rem; color: var(--muted); margin-top: 0.1rem; }
+
+  .results-singer {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--accent2);
+    flex-shrink: 0;
+  }
+
+  .play-again-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    color: white;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    padding: 0.85rem;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-top: 1.5rem;
+    transition: opacity 0.15s;
+  }
+
+  .play-again-btn:hover { opacity: 0.88; }
+
+  /* ── LOADING ── */
+  .loading-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.5rem 1rem;
+    gap: 0.75rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .spinner {
+    width: 24px;
+    height: 24px;
+    border: 2.5px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .toast {
+    position: fixed;
+    bottom: 5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 500;
+    padding: 0.55rem 1.1rem;
+    border-radius: 2rem;
+    z-index: 999;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .toast.show { opacity: 1; }
+
+  audio { display: none; }
+</style>
+</head>
+<body>
+
+<!-- ══ SETUP SCREEN ══ -->
+<div class="screen active" id="screen-setup">
+  <div style="width:100%;max-width:420px;margin:2rem auto;padding:0 1.25rem;">
+    <div class="setup-title">🎤 Karaoke Knight</div>
+    <div class="setup-sub">Set up your game and let's go.</div>
+
+    <div class="field-group">
+      <div class="field-label">Players</div>
+      <div id="player-inputs">
+        <div class="player-row">
+          <input class="text-input" placeholder="Player 1 name" value="Luis" />
+        </div>
+        <div class="player-row">
+          <input class="text-input" placeholder="Player 2 name" value="Bibi" />
+          <button class="remove-player-btn" onclick="removePlayer(this)">✕</button>
+        </div>
+      </div>
+      <button class="add-player-btn" onclick="addPlayer()">+ Add player</button>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">Rounds</div>
+      <div class="rounds-row">
+        <button class="round-btn" onclick="changeRounds(-1)">−</button>
+        <div class="rounds-num" id="rounds-display">5</div>
+        <button class="round-btn" onclick="changeRounds(1)">+</button>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">Language</div>
+      <div class="seg-group">
+        <button class="seg-btn active" onclick="setLang('EN', this)">English</button>
+        <button class="seg-btn" onclick="setLang('ES', this)">Spanish</button>
+        <button class="seg-btn" onclick="setLang('BOTH', this)">Both</button>
+      </div>
+    </div>
+
+    <button class="start-btn" onclick="startGame()">Start Game</button>
+  </div>
+</div>
+
+<!-- ══ GAME SCREEN ══ -->
+<div class="screen" id="screen-game">
+  <div class="app-header">
+    <div class="logo">🎤 Karaoke Knight</div>
+    <div class="header-meta" id="game-header-meta"></div>
+  </div>
+  <div class="game-body" id="game-body"></div>
+  <div class="bottom-bar">
+    <button class="next-btn" id="next-btn" onclick="nextRound()" disabled>Next Round →</button>
+  </div>
+</div>
+
+<!-- ══ RESULTS SCREEN ══ -->
+<div class="screen" id="screen-results">
+  <div class="results-card">
+    <div class="results-title">🏆 Game Over!</div>
+    <div class="results-sub">Here's what everyone sang tonight.</div>
+    <div id="results-body"></div>
+    <button class="play-again-btn" onclick="playAgain()">Play Again</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<audio id="audio-player" onended="onAudioEnded()"></audio>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBZfQUja53oq4KnwVFeYbkA083BdXVl7I8",
+  authDomain: "luifre-karaoke.firebaseapp.com",
+  projectId: "luifre-karaoke",
+  storageBucket: "luifre-karaoke.firebasestorage.app",
+  messagingSenderId: "365811959895",
+  appId: "1:365811959895:web:5158a9328b6228d9537b12",
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const gameRef = doc(db, "karaoke-knight", "session");
+
+// ── GENRES ──
+const GENRES = {
+  EN: ["Pop","Rock","R&B","Disney Classics","Country","Hip-Hop/Rap","80s","90s","2010s","Throwbacks"],
+  ES: ["Salsa","Merengue","Boleros","Reggaeton"]
+};
+
+const GENRE_SEARCH_TERMS = {
+  "Pop": "pop hits",
+  "Rock": "rock hits",
+  "R&B": "r&b soul",
+  "Disney Classics": "disney songs",
+  "Country": "country hits",
+  "Hip-Hop/Rap": "hip hop rap",
+  "80s": "80s hits",
+  "90s": "90s hits",
+  "2010s": "2010s hits",
+  "Throwbacks": "throwback hits oldies",
+  "Salsa": "salsa",
+  "Merengue": "merengue",
+  "Boleros": "boleros romanticos",
+  "Reggaeton": "reggaeton"
+};
+
+const ERA_RANGES = {
+  "80s": { core: [1980,1989], wide: [1975,1993] },
+  "90s": { core: [1990,1999], wide: [1985,2004] },
+  "2010s": { core: [2010,2019], wide: [2006,2023] }
+};
+
+// ── STATE ──
+let G = {
+  players: [],
+  totalRounds: 5,
+  lang: 'EN',
+  currentRound: 0,
+  currentGenre: '',
+  usedGenres: [],
+  // per-round: { genre, songs (pool), shownSongs, picks: {playerName: song} }
+  rounds: [],
+  activePlayer: null,
+  history: [] // [{round, genre, picks:[{player,song}]}]
+};
+
+let _previewingIdx = null;
+
+// ── SETUP ──
+window.changeRounds = (delta) => {
+  const el = document.getElementById('rounds-display');
+  let v = parseInt(el.textContent) + delta;
+  v = Math.max(1, Math.min(20, v));
+  el.textContent = v;
+};
+
+window.setLang = (lang, btn) => {
+  G.lang = lang;
+  document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+};
+
+window.addPlayer = () => {
+  const wrap = document.getElementById('player-inputs');
+  const count = wrap.children.length + 1;
+  const row = document.createElement('div');
+  row.className = 'player-row';
+  row.innerHTML = `<input class="text-input" placeholder="Player ${count} name" /><button class="remove-player-btn" onclick="removePlayer(this)">✕</button>`;
+  wrap.appendChild(row);
+};
+
+window.removePlayer = (btn) => {
+  const wrap = document.getElementById('player-inputs');
+  if (wrap.children.length <= 1) return showToast('Need at least 1 player');
+  btn.parentElement.remove();
+};
+
+window.startGame = async () => {
+  const inputs = document.querySelectorAll('#player-inputs .text-input');
+  const players = [...inputs].map(i => i.value.trim()).filter(Boolean);
+  if (!players.length) return showToast('Add at least one player!');
+
+  const rounds = parseInt(document.getElementById('rounds-display').textContent);
+
+  G.players = players;
+  G.totalRounds = rounds;
+  G.currentRound = 0;
+  G.usedGenres = [];
+  G.rounds = [];
+  G.history = [];
+
+  await saveState();
+  showScreen('game');
+  await loadRound();
+};
+
+// ── GAME ──
+async function loadRound() {
+  G.currentRound++;
+  const genre = pickGenre();
+  G.currentGenre = genre;
+  G.usedGenres.push(genre);
+  G.activePlayer = G.players[0];
+
+  showLoading();
+
+  const pool = await fetchAndScore(genre);
+  const shown = pool.slice(0, 4);
+
+  G.rounds[G.currentRound - 1] = {
+    genre,
+    pool,
+    shown,
+    poolOffset: 4,
+    picks: {} // playerName -> song
+  };
+
+  await saveState();
+  renderRound();
+}
+
+function pickGenre() {
+  let pool;
+  if (G.lang === 'EN') pool = [...GENRES.EN];
+  else if (G.lang === 'ES') pool = [...GENRES.ES];
+  else pool = [...GENRES.EN, ...GENRES.ES];
+
+  const available = pool.filter(g => !G.usedGenres.includes(g));
+  const source = available.length ? available : pool;
+  return source[Math.floor(Math.random() * source.length)];
+}
+
+// ── SCORING ──
+function scoreTrack(track, genre, artistCounts) {
+  let score = 100;
+  const title = (track.trackName || '').toLowerCase();
+  const artist = (track.artistName || '').toLowerCase();
+
+  if (track.previewUrl) score += 10;
+
+  const killWords = ['karaoke','instrumental','tribute'];
+  if (killWords.some(w => title.includes(w))) score -= 200;
+
+  const year = track.releaseDate ? parseInt(track.releaseDate.slice(0,4)) : null;
+  const era = ERA_RANGES[genre];
+  if (era) {
+    if (year) {
+      if (year >= era.core[0] && year <= era.core[1]) { /* no penalty */ }
+      else if (year >= era.wide[0] && year <= era.wide[1]) score -= 25;
+      else score -= 60;
+    } else {
+      score -= 10;
+    }
+  }
+
+  const artistCount = artistCounts[artist] || 0;
+  if (artistCount === 1) score -= 15;
+  else if (artistCount === 2) score -= 35;
+  else if (artistCount >= 3) score -= 60;
+
+  if (genre === 'Merengue') {
+    if (title.includes('bachata')) score -= 70;
+    if (['extended','mix','club'].some(w => title.includes(w))) score -= 20;
+  }
+
+  if (genre === 'Salsa') {
+    if (artist.includes('bee gees') || artist.includes('usher')) score -= 80;
+  }
+
+  if (genre === 'Hip-Hop/Rap') {
+    if (title.includes('boom bap')) score -= 40;
+  }
+
+  return score;
+}
+
+async function fetchAndScore(genre) {
+  const term = GENRE_SEARCH_TERMS[genre] || genre;
+  const country = GENRES.ES.includes(genre) ? 'MX' : 'US';
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=25&country=${country}`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const tracks = data.results || [];
+
+    const artistCounts = {};
+    tracks.forEach(t => {
+      const a = (t.artistName || '').toLowerCase();
+      artistCounts[a] = (artistCounts[a] || 0) + 1;
+    });
+
+    return tracks
+      .map(t => ({ ...t, _score: scoreTrack(t, genre, artistCounts) }))
+      .filter(t => t._score > -50)
+      .sort((a, b) => b._score - a._score);
+  } catch(e) {
+    return [];
+  }
+}
+
+// ── RENDER ROUND ──
+function renderRound() {
+  const round = G.rounds[G.currentRound - 1];
+  if (!round) return;
+
+  const allPicked = G.players.every(p => round.picks[p]);
+  document.getElementById('next-btn').disabled = !allPicked;
+  document.getElementById('game-header-meta').innerHTML =
+    `Round ${G.currentRound} of ${G.totalRounds}<br/>${G.players.length} players`;
+
+  // Player tabs
+  const tabs = G.players.map(p => {
+    const hasPick = !!round.picks[p];
+    const isActive = p === G.activePlayer;
+    return `<button class="player-tab ${isActive ? 'active' : ''} ${hasPick ? 'picked' : ''}" onclick="setActivePlayer('${esc(p)}')">${esc(p)}${hasPick ? ' ✓' : ''}</button>`;
+  }).join('');
+
+  // Songs for active player
+  const pickedSongIds = new Set(Object.values(round.picks).map(s => s.trackId));
+  const myPick = round.picks[G.activePlayer];
+
+  const songCards = round.shown.map((song, idx) => {
+    const isPickedByMe = myPick && myPick.trackId === song.trackId;
+    const isPickedByOther = !isPickedByMe && pickedSongIds.has(song.trackId);
+    const isPreviewing = _previewingIdx === idx;
+    const year = song.releaseDate ? song.releaseDate.slice(0,4) : '';
+
+    return `
+      <div class="song-card ${isPickedByMe ? 'selected' : ''} ${isPickedByOther ? 'disabled' : ''} ${isPreviewing ? 'previewing' : ''}">
+        <img class="song-art" src="${song.artworkUrl60 || ''}" alt="" />
+        <div class="song-info">
+          <div class="song-title">${esc(song.trackName)}</div>
+          <div class="song-artist">${esc(song.artistName)}</div>
+          ${year ? `<div class="song-year">${year}</div>` : ''}
+        </div>
+        <div class="song-actions">
+          ${song.previewUrl && !isPickedByOther ? `
+            <button class="preview-btn ${isPreviewing ? 'playing' : ''}" onclick="togglePreview(${idx})" title="Preview">
+              ${isPreviewing ? '⏸' : '▶'}
+            </button>` : ''}
+          ${isPickedByMe
+            ? `<span class="picked-badge">✓ Picked</span>`
+            : isPickedByOther
+              ? `<span class="picked-badge" style="color:var(--muted)">Taken</span>`
+              : `<button class="pick-btn" onclick="pickSong(${idx})">Pick</button>`
+          }
+        </div>
+      </div>`;
+  }).join('');
+
+  const moreDisabled = round.poolOffset >= round.pool.length;
+
+  document.getElementById('game-body').innerHTML = `
+    <div class="round-banner">
+      <div class="round-genre">
+        <div class="round-label">This Round</div>
+        <div class="genre-name">${esc(round.genre)}</div>
+      </div>
+      <div class="round-pill">Round ${G.currentRound} / ${G.totalRounds}</div>
+    </div>
+    <div class="player-tabs">${tabs}</div>
+    <div class="songs-label">${esc(G.activePlayer)}'s options</div>
+    ${songCards}
+    <button class="show-more-btn" onclick="showMore()" ${moreDisabled ? 'disabled' : ''}>
+      ${moreDisabled ? 'No more songs' : '↓ Show more options'}
+    </button>
+  `;
+}
+
+function showLoading() {
+  document.getElementById('game-body').innerHTML = `
+    <div class="loading-wrap">
+      <div class="spinner"></div>
+      Fetching songs…
+    </div>`;
+}
+
+// ── INTERACTIONS ──
+window.setActivePlayer = (name) => {
+  G.activePlayer = name;
+  renderRound();
+};
+
+window.pickSong = async (idx) => {
+  const round = G.rounds[G.currentRound - 1];
+  const song = round.shown[idx];
+  round.picks[G.activePlayer] = song;
+
+  // Auto-advance to next unpicked player
+  const next = G.players.find(p => !round.picks[p]);
+  if (next) G.activePlayer = next;
+
+  stopPreview();
+  await saveState();
+  renderRound();
+  showToast(`${G.activePlayer !== (next || G.activePlayer) ? G.activePlayer : 'Pick'} locked in! 🎤`);
+};
+
+window.showMore = async () => {
+  const round = G.rounds[G.currentRound - 1];
+  const newSongs = round.pool.slice(round.poolOffset, round.poolOffset + 4);
+  if (!newSongs.length) return;
+  round.shown = [...round.shown, ...newSongs];
+  round.poolOffset += 4;
+  await saveState();
+  renderRound();
+};
+
+window.togglePreview = (idx) => {
+  const audio = document.getElementById('audio-player');
+  const round = G.rounds[G.currentRound - 1];
+  const song = round.shown[idx];
+
+  if (_previewingIdx === idx) {
+    if (audio.paused) { audio.play(); }
+    else { audio.pause(); _previewingIdx = null; }
+    renderRound();
+    return;
+  }
+
+  _previewingIdx = idx;
+  audio.src = song.previewUrl;
+  audio.play();
+  renderRound();
+};
+
+window.onAudioEnded = () => {
+  _previewingIdx = null;
+  renderRound();
+};
+
+function stopPreview() {
+  const audio = document.getElementById('audio-player');
+  audio.pause();
+  audio.src = '';
+  _previewingIdx = null;
+}
+
+window.nextRound = async () => {
+  const round = G.rounds[G.currentRound - 1];
+
+  G.history.push({
+    round: G.currentRound,
+    genre: round.genre,
+    picks: G.players.map(p => ({ player: p, song: round.picks[p] }))
+  });
+
+  stopPreview();
+
+  if (G.currentRound >= G.totalRounds) {
+    await saveState();
+    showResults();
+  } else {
+    await loadRound();
+  }
+};
+
+// ── RESULTS ──
+function showResults() {
+  let html = '';
+  G.history.forEach(r => {
+    const pickRows = r.picks.map(p => `
+      <div class="results-pick">
+        <img class="results-art" src="${p.song?.artworkUrl60 || ''}" alt="" />
+        <div class="results-pick-info">
+          <div class="results-pick-title">${esc(p.song?.trackName || '—')}</div>
+          <div class="results-pick-meta">${esc(p.song?.artistName || '')}</div>
+        </div>
+        <div class="results-singer">${esc(p.player)}</div>
+      </div>`).join('');
+
+    html += `
+      <div class="results-round">
+        <div class="results-round-label">Round ${r.round} — ${esc(r.genre)}</div>
+        ${pickRows}
+      </div>`;
+  });
+
+  document.getElementById('results-body').innerHTML = html;
+  showScreen('results');
+}
+
+window.playAgain = () => showScreen('setup');
+
+// ── FIRESTORE SYNC ──
+async function saveState() {
+  try {
+    await setDoc(gameRef, { state: JSON.stringify(G), updatedAt: Date.now() });
+  } catch(e) { console.warn('Save failed', e); }
+}
+
+// Real-time listener — sync state from Firestore to all connected devices
+onSnapshot(gameRef, (snap) => {
+  if (!snap.exists()) return;
+  const data = snap.data();
+  if (!data?.state) return;
+
+  const remote = JSON.parse(data.state);
+  // Only apply if remote is newer (avoid overwriting own saves)
+  if (remote.currentRound !== G.currentRound || remote.activePlayer !== G.activePlayer) {
+    G = remote;
+    const active = document.querySelector('.screen.active')?.id;
+    if (active === 'screen-game') renderRound();
+  }
+});
+
+// ── UTILS ──
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${name}`).classList.add('active');
+}
+
+window.showToast = (msg) => {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+};
+
+window.esc = (str = '') =>
+  String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+</script>
+</body>
+</html>
