@@ -1076,11 +1076,18 @@
     </div>
 
     <div class="field-group">
+      <div class="field-label">Song Language</div>
+      <div class="seg-group" id="lang-seg">
+        <button class="seg-btn active" data-lang="EN" onclick="setLang('EN', this)">English</button>
+        <button class="seg-btn" data-lang="ES" onclick="setLang('ES', this)">Spanish</button>
+        <button class="seg-btn" data-lang="BOTH" onclick="setLang('BOTH', this)">Both</button>
+      </div>
+    </div>
+
+    <div class="field-group">
       <div class="field-label">Genres</div>
       <div class="genre-select-actions">
         <button class="genre-action-btn" onclick="selectAllGenres()">All</button>
-        <button class="genre-action-btn" onclick="selectGenreGroup('EN')">English only</button>
-        <button class="genre-action-btn" onclick="selectGenreGroup('ES')">Spanish only</button>
         <button class="genre-action-btn" onclick="selectNoneGenres()">None</button>
       </div>
       <div class="genre-grid" id="genre-grid"></div>
@@ -1118,7 +1125,7 @@
 
     <div class="join-divider" style="margin:1.25rem 0">or</div>
 
-    <button class="add-player-btn" onclick="showScreen('setup')" style="width:100%">
+    <button class="add-player-btn" onclick="startFresh()" style="width:100%">
       Start a new game instead
     </button>
   </div>
@@ -1442,7 +1449,7 @@ window.changeRounds = (delta) => {
 
 window.setLang = (lang, btn) => {
   G.lang = lang;
-  document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#lang-seg .seg-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 };
 
@@ -1483,16 +1490,6 @@ window.selectNoneGenres = () => {
   document.querySelectorAll('.genre-chip').forEach(b => b.classList.remove('selected'));
 };
 
-window.selectGenreGroup = (lang) => {
-  const enGenres = new Set(GENRES.EN);
-  const esGenres = new Set(GENRES.ES);
-  document.querySelectorAll('.genre-chip').forEach(b => {
-    const g = b.dataset.genre;
-    if (lang === 'EN') b.classList.toggle('selected', enGenres.has(g));
-    else b.classList.toggle('selected', esGenres.has(g));
-  });
-};
-
 function getSelectedGenres() {
   return [...document.querySelectorAll('.genre-chip.selected')].map(b => b.dataset.genre);
 }
@@ -1515,6 +1512,7 @@ window.startGame = async () => {
   G.players = players;
   G.totalRounds = rounds;
   G.selectedGenres = selectedGenres;
+  G.lang = G.lang || 'EN';
   G.currentRound = 0;
   G.usedGenres = [];
   G.usedLegends = [];
@@ -1527,6 +1525,18 @@ window.startGame = async () => {
   _myPlayer = players[0]; // host plays as first player by default
   showScreen('game');
   await loadRound();
+};
+
+window.startFresh = () => {
+  // Clear the ?game= param from URL so it doesn't interfere
+  const url = new URL(window.location.href);
+  url.searchParams.delete('game');
+  window.history.replaceState({}, '', url.toString());
+  // Reset game ID so a new one gets generated on start
+  _gameId = null;
+  _gameRef = null;
+  if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
+  showScreen('setup');
 };
 
 window.joinFromLink = async () => {
@@ -1831,8 +1841,21 @@ function scoreTrack(track, genre, artistCounts) {
 
 async function fetchAndScore(genre) {
   const config = GENRE_SEARCH_TERMS[genre] || { terms: [genre], countries: ['US'] };
-  const { terms, countries } = config;
+  const { terms } = config;
   const isES = GENRES.ES.includes(genre);
+  const limit = isES ? 50 : 25;
+
+  // Language setting overrides per-genre country defaults
+  // EN → US only, ES → MX only, BOTH → use genre defaults (already bilingual where applicable)
+  let countries;
+  if (G.lang === 'EN') {
+    countries = ['US'];
+  } else if (G.lang === 'ES') {
+    countries = ['MX'];
+  } else {
+    // BOTH — use the genre's configured countries
+    countries = config.countries;
+  }
   const limit = isES ? 50 : 25;
 
   const fetchTerm = async (term, country) => {
