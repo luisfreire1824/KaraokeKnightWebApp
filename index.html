@@ -1856,7 +1856,6 @@ async function fetchAndScore(genre) {
     // BOTH — use the genre's configured countries
     countries = config.countries;
   }
-  const limit = isES ? 50 : 25;
 
   const fetchTerm = async (term, country) => {
     try {
