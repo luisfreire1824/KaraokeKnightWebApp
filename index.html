@@ -1320,11 +1320,11 @@ const GENRE_SEARCH_TERMS = {
     "adele", "taylor swift", "ed sheeran"
   ], countries: ["US"] },
 
-  "Rock": { terms: [
-    "bon jovi", "guns n roses", "led zeppelin",
-    "queen", "aerosmith", "the rolling stones",
-    "mana", "soda stereo", "cafe tacuba", "los fabulosos cadillacs"
-  ], countries: ["US","MX"] },
+  "Rock": {
+    termsEN: ["bon jovi", "guns n roses", "led zeppelin", "queen", "aerosmith", "the rolling stones"],
+    termsES: ["mana", "soda stereo", "cafe tacuba", "los fabulosos cadillacs", "hombres g", "enanitos verdes"],
+    countries: ["US","MX"]
+  },
 
   "R&B": { terms: [
     "aretha franklin", "stevie wonder", "al green",
@@ -1349,19 +1349,17 @@ const GENRE_SEARCH_TERMS = {
     "drake", "kendrick lamar"
   ], countries: ["US"] },
 
-  "80s": { terms: [
-    "80s pop hits", "80s rock classics",
-    "michael jackson thriller", "prince purple rain",
-    "madonna 80s", "bon jovi 80s",
-    "pop latino 80s", "rock en español 80s"
-  ], countries: ["US","MX"] },
+  "80s": {
+    termsEN: ["80s pop hits", "80s rock classics", "michael jackson thriller", "prince purple rain", "madonna 80s", "bon jovi 80s"],
+    termsES: ["pop latino 80s", "rock en español 80s", "los enanitos verdes 80s", "flans 80s", "timbiriche 80s"],
+    countries: ["US","MX"]
+  },
 
-  "90s": { terms: [
-    "90s pop hits", "90s rock hits",
-    "backstreet boys", "tlc", "no doubt",
-    "spice girls", "nsync", "destiny's child",
-    "pop latino 90s", "rock en español 90s"
-  ], countries: ["US","MX"] },
+  "90s": {
+    termsEN: ["90s pop hits", "90s rock hits", "backstreet boys", "tlc", "no doubt", "spice girls", "nsync", "destiny's child"],
+    termsES: ["pop latino 90s", "rock en español 90s", "mana 90s", "jaguares 90s", "fobia 90s"],
+    countries: ["US","MX"]
+  },
 
   "2010s": { terms: [
     "2010s pop hits", "2010s hits playlist",
@@ -1841,9 +1839,21 @@ function scoreTrack(track, genre, artistCounts) {
 
 async function fetchAndScore(genre) {
   const config = GENRE_SEARCH_TERMS[genre] || { terms: [genre], countries: ['US'] };
-  const { terms } = config;
   const isES = GENRES.ES.includes(genre);
   const limit = isES ? 50 : 25;
+
+  // Determine which term list to use based on language setting.
+  // Genres with split termsEN/termsES (Rock, 80s, 90s) pick the matching list.
+  // Genres with a single `terms` array (everything else) always use that list —
+  // they're already single-language by nature (e.g. Salsa is always Spanish).
+  let terms;
+  if (config.termsEN || config.termsES) {
+    if (G.lang === 'EN') terms = config.termsEN || [];
+    else if (G.lang === 'ES') terms = config.termsES || [];
+    else terms = [...(config.termsEN || []), ...(config.termsES || [])]; // BOTH
+  } else {
+    terms = config.terms || [genre];
+  }
 
   // Language setting overrides per-genre country defaults
   // EN → US only, ES → MX only, BOTH → use genre defaults (already bilingual where applicable)
@@ -1853,7 +1863,6 @@ async function fetchAndScore(genre) {
   } else if (G.lang === 'ES') {
     countries = ['MX'];
   } else {
-    // BOTH — use the genre's configured countries
     countries = config.countries;
   }
 
