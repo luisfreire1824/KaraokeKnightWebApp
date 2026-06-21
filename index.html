@@ -1210,6 +1210,10 @@
 
   <div class="dev-section-label">Flagged Songs (<span id="flag-count">0</span>)</div>
   <div id="dev-flag-list"><div style="color:var(--muted);font-size:0.82rem;">No flags yet.</div></div>
+
+  <div class="dev-section-label">Device Song History (this browser)</div>
+  <div id="dev-history-stats" style="font-size:0.78rem;color:var(--muted);margin-bottom:0.6rem;"></div>
+  <button class="dev-btn danger" onclick="clearDeviceHistory()">🗑 Clear device history</button>
 </div>
 
 <audio id="audio-player" onended="onAudioEnded()"></audio>
@@ -1231,6 +1235,50 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const flagsCol = collection(db, "karaoke-knight-flags");
+
+// ── DEVICE-LEVEL CROSS-SESSION HISTORY (localStorage) ──
+// Two buckets per genre: "shown" (soft, evicted first) and "picked" (sticky, evicted last)
+// Cap scales per genre based on realistic pool size — bigger genres can remember more
+// without starving the pool, smaller genres need a tighter cap.
+const GENRE_HISTORY_CAPS = {
+  'Pop': 150, 'Rock': 120, 'R&B': 100, 'Disney Classics': 60,
+  'Country': 90, 'Hip-Hop/Rap': 150, '80s': 120, '90s': 120,
+  '2010s': 80, 'Throwbacks': 70,
+  'Salsa': 70, 'Merengue': 60, 'Boleros': 60, 'Reggaeton': 80,
+};
+const PICKED_HISTORY_RATIO = 0.25; // picked bucket is ~25% the size of the shown cap, but stickier
+
+function getShownCap(genre) { return GENRE_HISTORY_CAPS[genre] || 100; }
+function getPickedCap(genre) { return Math.max(15, Math.round(getShownCap(genre) * PICKED_HISTORY_RATIO)); }
+
+function lsKey(genre, bucket) { return `kk_${bucket}_${genre.replace(/[^a-z0-9]/gi, '_')}`; }
+
+function getDeviceHistory(genre, bucket) {
+  try {
+    const raw = localStorage.getItem(lsKey(genre, bucket));
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function addToDeviceHistory(genre, bucket, trackIds) {
+  if (!trackIds.length) return;
+  try {
+    const cap = bucket === 'picked' ? getPickedCap(genre) : getShownCap(genre);
+    let history = getDeviceHistory(genre, bucket);
+    // Append new, dedupe, keep most recent at the end
+    const merged = [...history.filter(id => !trackIds.includes(id)), ...trackIds];
+    // Evict oldest if over cap (oldest = front of array)
+    const trimmed = merged.length > cap ? merged.slice(merged.length - cap) : merged;
+    localStorage.setItem(lsKey(genre, bucket), JSON.stringify(trimmed));
+  } catch(e) { /* localStorage full or unavailable — fail silently */ }
+}
+
+function getCombinedDeviceHistory(genre) {
+  // Union of both buckets — used to exclude from pool building
+  const shown = getDeviceHistory(genre, 'shown');
+  const picked = getDeviceHistory(genre, 'picked');
+  return new Set([...shown, ...picked]);
+}
 
 // ── GAME ID SYSTEM ──
 let _gameId = null;
@@ -1322,7 +1370,12 @@ const GENRE_SEARCH_TERMS = {
 
   "Rock": {
     termsEN: ["bon jovi", "guns n roses", "led zeppelin", "queen", "aerosmith", "the rolling stones"],
-    termsES: ["mana", "soda stereo", "cafe tacuba", "los fabulosos cadillacs", "hombres g", "enanitos verdes"],
+    termsES: [
+      "mana", "soda stereo", "cafe tacuba", "los fabulosos cadillacs",
+      "hombres g", "enanitos verdes", "heroes del silencio", "jaguares",
+      "molotov", "caifanes", "el tri", "los enanitos verdes",
+      "fobia", "la ley", "bunbury"
+    ],
     countries: ["US","MX"]
   },
 
@@ -1625,7 +1678,23 @@ async function loadRound() {
   showLoading();
 
   const { classicPool, wowPool } = await fetchAndScore(genre);
-  const shown = buildBatch(classicPool, wowPool, [], 4);
+
+  // Session-level seen tracking: exclude songs already shown in PREVIOUS rounds
+  // of THIS genre, earlier in the same game (e.g. if genre repeats after pool exhaustion)
+  if (!G.seenTrackIdsByGenre) G.seenTrackIdsByGenre = {};
+  const seenForGenre = new Set(G.seenTrackIdsByGenre[genre] || []);
+
+  // Device-level history: exclude songs this browser has seen across PAST games too
+  const deviceSeen = getCombinedDeviceHistory(genre);
+
+  const allSeenIds = new Set([...seenForGenre, ...deviceSeen]);
+  const seenAsShown = [...allSeenIds].map(id => ({ trackId: id, artistName: '' }));
+
+  const shown = buildBatch(classicPool, wowPool, seenAsShown, 4);
+
+  // Record these as seen for this genre going forward (session + device)
+  G.seenTrackIdsByGenre[genre] = [...seenForGenre, ...shown.map(s => s.trackId)];
+  addToDeviceHistory(genre, 'shown', shown.map(s => s.trackId));
 
   G.rounds[G.currentRound - 1] = {
     genre,
@@ -1660,8 +1729,15 @@ function pickGenre() {
 // wow = position 5+ in artist results (deeper cuts)
 // classic = position 0-4 (known hits)
 function buildBatch(classicPool, wowPool, alreadyShown, batchSize) {
+  const primaryArtist = (artistName) => {
+    const a = (artistName || '').toLowerCase();
+    return a.split(/\s*&\s*|\s+feat\.?\s+|\s*,\s*/)[0].trim();
+  };
+
   const shownIds = new Set(alreadyShown.map(s => s.trackId));
-  const artistsInBatch = new Set();
+  // Track artists across ALL previously shown songs this round, not just this batch —
+  // prevents the same artist (e.g. Michael Jackson) from reappearing across "Show More" calls
+  const artistsInBatch = new Set(alreadyShown.map(s => primaryArtist(s.artistName)));
   const batch = [];
 
   const wowCount = Math.round(batchSize * 0.3); // 1 out of 4, 2 out of 7, etc
@@ -1672,16 +1748,32 @@ function buildBatch(classicPool, wowPool, alreadyShown, batchSize) {
     for (const track of pool) {
       if (picked.length >= count) break;
       if (shownIds.has(track.trackId)) continue;
-      if (artistsInBatch.has((track.artistName||'').toLowerCase())) continue;
+      if (artistsInBatch.has(primaryArtist(track.artistName))) continue;
       picked.push(track);
       shownIds.add(track.trackId);
-      artistsInBatch.add((track.artistName||'').toLowerCase());
+      artistsInBatch.add(primaryArtist(track.artistName));
     }
     return picked;
   };
 
   const classics = pickFrom(classicPool, classicCount);
   const wows = pickFrom(wowPool, wowCount);
+
+  // If we came up short (pool exhausted with artist cap), backfill ignoring the artist cap
+  // but still respecting shownIds — better to show a repeat artist than nothing
+  const totalPicked = classics.length + wows.length;
+  if (totalPicked < batchSize) {
+    const needed = batchSize - totalPicked;
+    const combinedPool = [...classicPool, ...wowPool];
+    const backfill = [];
+    for (const track of combinedPool) {
+      if (backfill.length >= needed) break;
+      if (shownIds.has(track.trackId)) continue;
+      backfill.push(track);
+      shownIds.add(track.trackId);
+    }
+    classics.push(...backfill);
+  }
 
   // Interleave: roughly classic, classic, wow, classic pattern
   const combined = [...classics, ...wows];
@@ -1768,6 +1860,9 @@ function scoreTrack(track, genre, artistCounts) {
     'Salsa':    ['salsa romantica','salsa romántica','salsa clasica','salsa clásica','salsa tropical'],
     'Boleros':  ['boleros romanticos','boleros románticos','bolero y habaneras','bolero sangriento'],
     'R&B':      ['r&b'],
+    '80s':      ["80's",'80s','80s pop','80s rock','80s hits'],
+    '90s':      ["90's",'90s','90s pop','90s rock','90s hits'],
+    'Rock':     ['rock','rock hits','rock classics'],
   };
   if (genreKillTitles[genre]?.some(t => title === t || title.startsWith(t + ' (') || title.startsWith(t + ':') )) score -= 200;
 
@@ -1777,8 +1872,8 @@ function scoreTrack(track, genre, artistCounts) {
     if (artist.includes('orchestra') || artist.includes('score') || artist.includes('giacchino') || artist.includes('instrumental')) score -= 150;
   }
 
-  // Soft junk penalties
-  const junkWords = ['remix','live','remaster','remastered','acoustic','radio edit','single version','album version','demo','extended mix','club mix','bonus track','versión','version','privé','prive'];
+  // Soft junk penalties — added "mix" as standalone word to catch things like "(Def Thrill Mix)"
+  const junkWords = ['remix','live','remaster','remastered','acoustic','radio edit','single version','album version','demo','extended mix','club mix','bonus track','versión','version','privé','prive',' mix)',' mix '];
   if (junkWords.some(w => title.includes(w))) score -= 80;
 
   // Kill medley tracks with multiple slash separators
@@ -1803,7 +1898,7 @@ function scoreTrack(track, genre, artistCounts) {
     if (year) {
       if (year >= era.core[0] && year <= era.core[1]) { /* no penalty */ }
       else if (year >= era.wide[0] && year <= era.wide[1]) score -= 25;
-      else score -= 60;
+      else score -= 200; // hard kill — way outside the era, regardless of other bonuses
     } else {
       score -= 10;
     }
@@ -1875,16 +1970,23 @@ async function fetchAndScore(genre) {
 
       // If the search term looks like an artist name (not a genre phrase),
       // only keep tracks where that artist is the PRIMARY artist (not just featured)
-      const termLower = term.toLowerCase();
-      const isArtistSearch = LEGEND_ARTISTS.has(termLower) ||
-        [...LEGEND_ARTISTS].some(l => termLower === l || termLower.includes(l));
+      // Normalize hyphens/periods so "jay z" matches "jay-z", "notorious big" matches "notorious b.i.g." etc
+      const normalize = (s) => s.toLowerCase().replace(/[-.]/g, ' ').replace(/\s+/g, ' ').trim();
+      const termLower = normalize(term);
+      const isArtistSearch = [...LEGEND_ARTISTS].some(l => {
+        const ln = normalize(l);
+        return termLower === ln || termLower.includes(ln) || ln.includes(termLower);
+      });
 
       if (isArtistSearch) {
         return tracks.filter(t => {
-          const primaryArtist = (t.artistName || '').toLowerCase();
+          const primaryArtist = normalize(t.artistName || '');
           // Allow "Artist", "Artist & X", "Artist feat X" but not "Other feat Artist"
           return primaryArtist.startsWith(termLower) ||
-            [...LEGEND_ARTISTS].some(l => termLower.includes(l) && primaryArtist.startsWith(l));
+            [...LEGEND_ARTISTS].some(l => {
+              const ln = normalize(l);
+              return termLower.includes(ln) && primaryArtist.startsWith(ln);
+            });
         });
       }
       return tracks;
@@ -1935,11 +2037,18 @@ async function fetchAndScore(genre) {
     return [...t1, ...t2];
   };
 
-  // Hard artist cap per pool: max 2 per artist
+  // Hard artist cap per pool: max 2 per PRIMARY artist
+  // Extract primary artist by stripping " & ", " feat", "," collaborators —
+  // "Celia Cruz & Johnny Pacheco" and "Celia Cruz & La India" both count as "celia cruz"
+  const primaryArtist = (artistName) => {
+    const a = (artistName || '').toLowerCase();
+    return a.split(/\s*&\s*|\s+feat\.?\s+|\s*,\s*/)[0].trim();
+  };
+
   const capArtists = (pool) => {
     const counts = {};
     return pool.filter(t => {
-      const a = (t.artistName || '').toLowerCase();
+      const a = primaryArtist(t.artistName);
       counts[a] = (counts[a] || 0) + 1;
       return counts[a] <= 2;
     });
@@ -2135,6 +2244,9 @@ window.pickSong = async (idx) => {
   // Clear skip if they had one
   if (round.skips?.[me]) delete round.skips[me];
 
+  // Record as "picked" in device history — stickier, evicted later than just-shown songs
+  addToDeviceHistory(round.genre, 'picked', [song.trackId]);
+
   stopPreview();
   await saveState();
   renderRound();
@@ -2166,6 +2278,16 @@ window.showMore = async () => {
   const newBatch = buildBatch(round.classicPool, round.wowPool, round.shown, 4);
   if (!newBatch.length) return showToast('No more songs available');
   round.shown = [...round.shown, ...newBatch];
+
+  // Record in session-level seen tracker too
+  if (!G.seenTrackIdsByGenre) G.seenTrackIdsByGenre = {};
+  const existing = new Set(G.seenTrackIdsByGenre[round.genre] || []);
+  newBatch.forEach(s => existing.add(s.trackId));
+  G.seenTrackIdsByGenre[round.genre] = [...existing];
+
+  // Record in device-level history too
+  addToDeviceHistory(round.genre, 'shown', newBatch.map(s => s.trackId));
+
   await saveState();
   renderRound();
 };
@@ -2353,7 +2475,30 @@ async function refreshDevPanel() {
     document.getElementById('dev-flag-list').innerHTML =
       '<div style="color:#ff5c5c;font-size:0.82rem;">Failed to load flags.</div>';
   }
+
+  // Device history stats
+  try {
+    const allGenres = [...GENRES.EN, ...GENRES.ES];
+    const lines = allGenres.map(g => {
+      const shown = getDeviceHistory(g, 'shown').length;
+      const picked = getDeviceHistory(g, 'picked').length;
+      return `${g}: ${shown} shown / ${picked} picked`;
+    });
+    document.getElementById('dev-history-stats').innerHTML = lines.join('<br/>');
+  } catch(e) {
+    document.getElementById('dev-history-stats').textContent = 'Could not read history';
+  }
 }
+
+window.clearDeviceHistory = () => {
+  const allGenres = [...GENRES.EN, ...GENRES.ES];
+  allGenres.forEach(g => {
+    localStorage.removeItem(lsKey(g, 'shown'));
+    localStorage.removeItem(lsKey(g, 'picked'));
+  });
+  refreshDevPanel();
+  showToast('Device history cleared');
+};
 
 window.exportFlags = async () => {
   const snap = await getDocs(flagsCol);
