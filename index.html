@@ -1241,10 +1241,10 @@ const flagsCol = collection(db, "karaoke-knight-flags");
 // Cap scales per genre based on realistic pool size — bigger genres can remember more
 // without starving the pool, smaller genres need a tighter cap.
 const GENRE_HISTORY_CAPS = {
-  'Pop': 150, 'Rock': 120, 'R&B': 100, 'Disney Classics': 60,
-  'Country': 90, 'Hip-Hop/Rap': 150, '80s': 120, '90s': 120,
-  '2010s': 80, 'Throwbacks': 70,
-  'Salsa': 70, 'Merengue': 60, 'Boleros': 60, 'Reggaeton': 80,
+  'Pop': 150, 'Rock': 140, 'R&B': 120, 'Disney Classics': 60,
+  'Country': 110, 'Hip-Hop/Rap': 150, '80s': 140, '90s': 140,
+  '2010s': 100, 'Throwbacks': 70,
+  'Salsa': 100, 'Merengue': 80, 'Boleros': 90, 'Reggaeton': 100,
 };
 const PICKED_HISTORY_RATIO = 0.25; // picked bucket is ~25% the size of the shown cap, but stickier
 
@@ -1369,7 +1369,7 @@ const GENRE_SEARCH_TERMS = {
   ], countries: ["US"] },
 
   "Rock": {
-    termsEN: ["bon jovi", "guns n roses", "led zeppelin", "queen", "aerosmith", "the rolling stones"],
+    termsEN: ["bon jovi", "guns n roses", "led zeppelin", "queen", "aerosmith", "the rolling stones", "van halen", "journey", "def leppard", "pink floyd"],
     termsES: [
       "mana", "soda stereo", "cafe tacuba", "los fabulosos cadillacs",
       "hombres g", "enanitos verdes", "heroes del silencio", "jaguares",
@@ -1381,7 +1381,8 @@ const GENRE_SEARCH_TERMS = {
 
   "R&B": { terms: [
     "aretha franklin", "stevie wonder", "al green",
-    "marvin gaye", "r kelly", "usher", "alicia keys"
+    "marvin gaye", "r kelly", "usher", "alicia keys",
+    "boyz ii men", "tlc", "en vogue", "d'angelo"
   ], countries: ["US"] },
 
   "Disney Classics": { terms: [
@@ -1392,7 +1393,8 @@ const GENRE_SEARCH_TERMS = {
 
   "Country": { terms: [
     "johnny cash", "dolly parton", "kenny rogers",
-    "garth brooks", "shania twain", "willie nelson"
+    "garth brooks", "shania twain", "willie nelson",
+    "george strait", "reba mcentire", "carrie underwood"
   ], countries: ["US"] },
 
   "Hip-Hop/Rap": { terms: [
@@ -1403,20 +1405,21 @@ const GENRE_SEARCH_TERMS = {
   ], countries: ["US"] },
 
   "80s": {
-    termsEN: ["80s pop hits", "80s rock classics", "michael jackson thriller", "prince purple rain", "madonna 80s", "bon jovi 80s"],
-    termsES: ["pop latino 80s", "rock en español 80s", "los enanitos verdes 80s", "flans 80s", "timbiriche 80s"],
+    termsEN: ["80s pop hits", "80s rock classics", "michael jackson thriller", "prince purple rain", "madonna 80s", "bon jovi 80s", "cyndi lauper", "duran duran", "whitney houston 80s"],
+    termsES: ["pop latino 80s", "rock en español 80s", "los enanitos verdes 80s", "flans 80s", "timbiriche 80s", "pandora 80s", "daniela romo", "yuri 80s"],
     countries: ["US","MX"]
   },
 
   "90s": {
     termsEN: ["90s pop hits", "90s rock hits", "backstreet boys", "tlc", "no doubt", "spice girls", "nsync", "destiny's child"],
-    termsES: ["pop latino 90s", "rock en español 90s", "mana 90s", "jaguares 90s", "fobia 90s"],
+    termsES: ["pop latino 90s", "rock en español 90s", "mana 90s", "jaguares 90s", "fobia 90s", "cafe tacuba 90s", "maldita vecindad", "la mosca tse tse"],
     countries: ["US","MX"]
   },
 
   "2010s": { terms: [
     "2010s pop hits", "2010s hits playlist",
-    "bruno mars 2010s", "adele 2010s", "ed sheeran 2010s"
+    "bruno mars 2010s", "adele 2010s", "ed sheeran 2010s",
+    "taylor swift 2010s", "rihanna 2010s", "katy perry"
   ], countries: ["US"] },
 
   "Throwbacks": { terms: [
@@ -1427,45 +1430,60 @@ const GENRE_SEARCH_TERMS = {
   "Salsa": { terms: [
     "marc anthony salsa", "celia cruz salsa",
     "gilberto santa rosa", "willie colon salsa",
-    "hector lavoe", "ruben blades"
+    "hector lavoe", "ruben blades",
+    "tito puente", "oscar d'leon", "eddie santiago",
+    "el gran combo", "frankie ruiz", "victor manuelle"
   ], countries: ["MX"] },
 
   "Merengue": { terms: [
     "juan luis guerra merengue", "wilfrido vargas",
     "johnny ventura merengue", "sergio vargas merengue",
-    "los hermanos rosario", "toño rosario"
+    "los hermanos rosario", "toño rosario",
+    "fernando villalona", "eddy herrera", "milly quezada", "bonny cepeda"
   ], countries: ["MX"] },
 
   "Boleros": { terms: [
     "jose jose boleros", "armando manzanero",
     "agustin lara boleros", "pedro infante boleros",
     "julio jaramillo", "segundo rosero",
-    "luis miguel boleros", "chavela vargas"
+    "luis miguel boleros", "chavela vargas",
+    "pedro vargas", "lucho gatica"
   ], countries: ["MX"] },
 
   "Reggaeton": { terms: [
     "daddy yankee", "don omar", "tego calderon",
     "wisin yandel", "j balvin", "bad bunny",
-    "nicky jam", "plan b reggaeton", "arcangel reggaeton"
+    "nicky jam", "plan b reggaeton", "arcangel reggaeton",
+    "zion y lennox", "yandel", "farruko"
   ], countries: ["MX"] }
 };
 
 // Artists whose songs should be exempt from flooding penalty (legends)
 const LEGEND_ARTISTS = new Set([
   'michael jackson','whitney houston','mariah carey','madonna','prince','beyoncé','beyonce',
-  'bruno mars','adele','taylor swift','ed sheeran',
+  'bruno mars','adele','taylor swift','ed sheeran','rihanna','katy perry',
   'bon jovi','guns n roses','led zeppelin','queen','aerosmith','the rolling stones',
-  'mana','soda stereo',
+  'van halen','journey','def leppard','pink floyd',
+  'mana','soda stereo','cafe tacuba','los fabulosos cadillacs','hombres g','enanitos verdes',
+  'heroes del silencio','jaguares','molotov','caifanes','el tri','fobia','la ley','bunbury',
   'aretha franklin','stevie wonder','al green','marvin gaye','usher','alicia keys',
-  'johnny cash','dolly parton','kenny rogers','garth brooks','shania twain',
+  'boyz ii men','tlc','en vogue',"d'angelo",
+  'johnny cash','dolly parton','kenny rogers','garth brooks','shania twain','willie nelson',
+  'george strait','reba mcentire','carrie underwood',
   'notorious b.i.g.','2pac','tupac','eminem','jay-z','lil wayne','kanye west',
   'nas','dmx','50 cent','snoop dogg','drake','kendrick lamar',
-  'backstreet boys','tlc','no doubt','spice girls','nsync',
+  'backstreet boys','no doubt','spice girls','nsync',"destiny's child",
+  'cyndi lauper','duran duran',
+  'flans','timbiriche','pandora','daniela romo','yuri',
+  'maldita vecindad','la mosca tse tse',
   'marc anthony','celia cruz','gilberto santa rosa','willie colon','hector lavoe','ruben blades',
+  'tito puente',"oscar d'leon",'eddie santiago','el gran combo','frankie ruiz','victor manuelle',
   'juan luis guerra','wilfrido vargas','johnny ventura','sergio vargas',
+  'fernando villalona','eddy herrera','milly quezada','bonny cepeda',
   'jose jose','armando manzanero','agustin lara','pedro infante',
-  'julio jaramillo','segundo rosero','luis miguel','chavela vargas',
+  'julio jaramillo','segundo rosero','luis miguel','chavela vargas','pedro vargas','lucho gatica',
   'daddy yankee','don omar','tego calderon','j balvin','bad bunny','nicky jam',
+  'zion y lennox','yandel','farruko',
 ]);
 
 const ERA_RANGES = {
