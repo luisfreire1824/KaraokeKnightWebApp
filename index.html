@@ -1285,10 +1285,25 @@ let _gameId = null;
 let _gameRef = null;
 let _unsubscribe = null;
 let _lastSavedAt = 0;
-// Unique token for this browser tab — used to determine if this device is host
+// Unique token for this browser tab — regenerated each load,
+// but if this device was the host, we restore identity from localStorage
 const _deviceToken = Math.random().toString(36).slice(2);
 // This device's player identity — set on start or join
 let _myPlayer = null;
+
+function saveHostToken(gameId, token) {
+  try { localStorage.setItem(`kk_host_${gameId}`, token); } catch(e) {}
+}
+
+function getStoredHostToken(gameId) {
+  try { return localStorage.getItem(`kk_host_${gameId}`); } catch(e) { return null; }
+}
+
+// Returns the effective device token for host checks —
+// if this device was the host of the given game (stored in localStorage), use that token
+function effectiveToken(gameId) {
+  return getStoredHostToken(gameId) || _deviceToken;
+}
 
 function generateGameId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no confusing chars
@@ -1313,7 +1328,7 @@ function setGameId(id) {
     if (data.updatedAt <= _lastSavedAt) return;
 
     const remote = JSON.parse(data.state);
-    const isHost = !remote.hostToken || remote.hostToken === _deviceToken;
+    const isHost = !remote.hostToken || remote.hostToken === effectiveToken(id);
 
     // Non-host devices always sync from Firestore
     // Host devices only sync if state differs (another device made a pick)
@@ -1589,6 +1604,7 @@ window.startGame = async () => {
   G.history = [];
   G.gameId = id;
   G.hostToken = _deviceToken; // only this device can advance rounds
+  saveHostToken(id, _deviceToken); // persist so rejoin works after tab close
 
   await saveState();
   _myPlayer = players[0]; // host plays as first player by default
@@ -1627,6 +1643,17 @@ window.joinGame = async () => {
 
     setGameId(id);
     G = JSON.parse(snap.data().state);
+
+    // If this device was the original host, restore identity and skip who-are-you screen
+    const storedToken = getStoredHostToken(id);
+    if (storedToken && storedToken === G.hostToken) {
+      // Restore as host — go straight back into the game
+      _myPlayer = G.players[0]; // host is always first player by convention
+      showScreen('game');
+      renderRound();
+      showToast(`Welcome back, host! 🎤`);
+      return;
+    }
 
     // Show who-are-you screen
     document.getElementById('join-game-sub').textContent =
@@ -2083,7 +2110,7 @@ function renderRound() {
   const round = G.rounds[G.currentRound - 1];
   if (!round) return;
 
-  const isHost = !G.hostToken || G.hostToken === _deviceToken;
+  const isHost = !G.hostToken || G.hostToken === effectiveToken(_gameId);
   const me = _myPlayer || G.players[0];
   const pickedSongIds = new Set(
     Object.values(round.picks)
@@ -2341,7 +2368,7 @@ function stopPreview() {
 }
 
 window.nextRound = async () => {
-  if (G.hostToken && G.hostToken !== _deviceToken) return;
+  if (G.hostToken && G.hostToken !== effectiveToken(_gameId)) return;
   const round = G.rounds[G.currentRound - 1];
 
   G.history.push({
@@ -2368,7 +2395,7 @@ window.nextRound = async () => {
 };
 
 window.skipGenre = async () => {
-  if (G.hostToken && G.hostToken !== _deviceToken) return; // only host skips
+  if (G.hostToken && G.hostToken !== effectiveToken(_gameId)) return; // only host skips
   G.usedGenres = G.usedGenres.filter(g => g !== G.currentGenre);
   G.currentRound--;
   showToast(`Skipping ${G.currentGenre}…`);
