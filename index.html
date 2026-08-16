@@ -1686,6 +1686,7 @@ window.setLang = (lang, btn) => {
   G.lang = lang;
   document.querySelectorAll('#lang-seg .seg-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  initGenreGrid(lang);
 };
 
 window.addPlayer = () => {
@@ -1704,7 +1705,9 @@ window.removePlayer = (btn) => {
 };
 
 // ── GENRE PICKER INIT ──
-function initGenreGrid() {
+function initGenreGrid(lang) {
+  const currentLang = lang || G.lang || 'EN';
+
   const GENRE_DESCRIPTIONS = {
     'Pop':            'Chart hits, mainstream bangers',
     'Rock':           'Classic rock to modern anthems',
@@ -1724,11 +1727,18 @@ function initGenreGrid() {
 
   const allGenres = [...GENRES.EN, ...GENRES.ES];
   const grid = document.getElementById('genre-grid');
-  grid.innerHTML = allGenres.map(g => `
-    <button class="genre-chip selected" data-genre="${esc(g)}" onclick="toggleGenre(this)">
-      <div class="genre-chip-name">${esc(g)}</div>
-      <div class="genre-chip-desc">${esc(GENRE_DESCRIPTIONS[g] || '')}</div>
-    </button>`).join('');
+  grid.innerHTML = allGenres.map(g => {
+    const isEN = GENRES.EN.includes(g);
+    const isES = GENRES.ES.includes(g);
+    const disabled = (currentLang === 'EN' && isES) || (currentLang === 'ES' && isEN);
+    const dimStyle = disabled ? 'opacity:0.25;pointer-events:none;' : '';
+    const selectedClass = disabled ? '' : 'selected';
+    return `
+      <button class="genre-chip ${selectedClass}" data-genre="${esc(g)}" onclick="toggleGenre(this)" style="${dimStyle}">
+        <div class="genre-chip-name">${esc(g)}</div>
+        <div class="genre-chip-desc">${esc(GENRE_DESCRIPTIONS[g] || '')}</div>
+      </button>`;
+  }).join('');
 }
 
 window.toggleGenre = (btn) => {
@@ -1736,7 +1746,10 @@ window.toggleGenre = (btn) => {
 };
 
 window.selectAllGenres = () => {
-  document.querySelectorAll('.genre-chip').forEach(b => b.classList.add('selected'));
+  // Only select chips that aren't dimmed (i.e. valid for current language)
+  document.querySelectorAll('.genre-chip').forEach(b => {
+    if (b.style.pointerEvents !== 'none') b.classList.add('selected');
+  });
 };
 
 window.selectNoneGenres = () => {
@@ -1752,7 +1765,11 @@ window.startGame = async () => {
   const players = [...inputs].map(i => i.value.trim()).filter(Boolean);
   if (!players.length) return showToast('Add at least one player!');
 
-  const selectedGenres = getSelectedGenres();
+  const selectedGenres = getSelectedGenres().filter(g => {
+    if (G.lang === 'EN') return GENRES.EN.includes(g);
+    if (G.lang === 'ES') return GENRES.ES.includes(g);
+    return true; // BOTH — all genres valid
+  });
   if (!selectedGenres.length) return showToast('Pick at least one genre!');
   console.log('[KK] Starting game with genres:', selectedGenres);
 
