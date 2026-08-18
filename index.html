@@ -1105,6 +1105,16 @@
   .recap-info { flex: 1; min-width: 0; }
   .recap-song { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .recap-artist { font-size: 0.75rem; color: var(--muted); margin-top: 0.1rem; }
+  .recap-yt-link {
+    display: inline-block;
+    margin-top: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    opacity: 0.85;
+  }
+  .recap-yt-link:hover { opacity: 1; text-decoration: underline; }
   .recap-player {
     font-size: 0.7rem; font-weight: 700; color: var(--accent2);
     background: rgba(255,92,168,0.1); padding: 0.15rem 0.5rem; border-radius: 4px; flex-shrink: 0;
@@ -2653,6 +2663,7 @@ function showRoundRecap(roundHistory, onContinue) {
         <div class="recap-info">
           <div class="recap-song">${esc(p.song.trackName)}</div>
           <div class="recap-artist">${esc(p.song.artistName)}</div>
+          <a class="recap-yt-link" href="https://www.youtube.com/results?search_query=${encodeURIComponent(p.song.trackName + ' ' + p.song.artistName + ' karaoke')}" target="_blank" rel="noopener">🎤 Sing it on YouTube</a>
         </div>
         <div class="recap-player">${esc(p.player)}</div>
       </div>`;
