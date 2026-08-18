@@ -1523,7 +1523,7 @@ let _flagTargetIdx = null;
 
 // ── GENRES ──
 const GENRES = {
-  EN: ["Pop","Rock","R&B","Disney Classics","Country","Hip-Hop/Rap","80s","90s","2010s","Throwbacks"],
+  EN: ["Pop","Rock","R&B","Disney Classics","Country","Hip-Hop/Rap","70s","80s","90s","2010s","Throwbacks"],
   ES: ["Salsa","Merengue","Boleros","Reggaeton"]
 };
 
@@ -1569,6 +1569,12 @@ const GENRE_SEARCH_TERMS = {
     "nas", "dmx", "50 cent", "snoop dogg",
     "drake", "kendrick lamar"
   ], countries: ["US"] },
+
+  "70s": {
+    termsEN: ["70s rock classics", "70s pop hits", "led zeppelin", "fleetwood mac", "the eagles", "elton john 70s", "david bowie 70s", "bee gees", "abba", "queen 70s", "stevie wonder 70s", "al green 70s"],
+    termsES: ["pop latino 70s", "rock en español 70s", "jose jose 70s", "juan gabriel 70s", "camilo sesto", "roberto carlos 70s", "raphael 70s", "jose luis rodriguez", "pedro infante", "javier solis"],
+    countries: ["US","MX"]
+  },
 
   "80s": {
     termsEN: ["80s pop hits", "80s rock classics", "michael jackson thriller", "prince purple rain", "madonna 80s", "bon jovi 80s", "cyndi lauper", "duran duran", "whitney houston 80s"],
@@ -1653,6 +1659,7 @@ const LEGEND_ARTISTS = new Set([
 ]);
 
 const ERA_RANGES = {
+  "70s": { core: [1970,1979], wide: [1965,1984] },
   "80s": { core: [1980,1989], wide: [1975,1993] },
   "90s": { core: [1990,1999], wide: [1985,2004] },
   "2010s": { core: [2010,2019], wide: [2006,2023] }
@@ -1715,6 +1722,7 @@ function initGenreGrid(lang) {
     'Disney Classics':'Iconic songs from the films',
     'Country':        'Nashville, honky-tonk, crossover',
     'Hip-Hop/Rap':    'Golden era to modern rap',
+    '70s':            'Classic rock, disco, soft rock, Latin 70s',
     '80s':            'Synths, hair metal, new wave',
     '90s':            'Grunge, pop, alternative, boy bands',
     '2010s':          'Indie pop, EDM era, recent hits',
@@ -1725,12 +1733,15 @@ function initGenreGrid(lang) {
     'Reggaeton':      'Perreo, urbano, Latin trap',
   };
 
+  const BILINGUAL_GENRES = new Set(['Rock', '70s', '80s', '90s']);
+
   const allGenres = [...GENRES.EN, ...GENRES.ES];
   const grid = document.getElementById('genre-grid');
   grid.innerHTML = allGenres.map(g => {
     const isEN = GENRES.EN.includes(g);
     const isES = GENRES.ES.includes(g);
-    const disabled = (currentLang === 'EN' && isES) || (currentLang === 'ES' && isEN);
+    const isBilingual = BILINGUAL_GENRES.has(g);
+    const disabled = !isBilingual && ((currentLang === 'EN' && isES) || (currentLang === 'ES' && isEN));
     const dimStyle = disabled ? 'opacity:0.25;pointer-events:none;' : '';
     const selectedClass = disabled ? '' : 'selected';
     return `
@@ -2101,6 +2112,7 @@ function scoreTrack(track, genre, artistCounts) {
     'R&B':      ['r&b'],
     '80s':      ["80's",'80s','80s pop','80s rock','80s hits'],
     '90s':      ["90's",'90s','90s pop','90s rock','90s hits'],
+    '70s':      ["70's",'70s','70s pop','70s rock','70s hits','70s classics'],
     'Rock':     ['rock','rock hits','rock classics'],
   };
   if (genreKillTitles[genre]?.some(t => title === t || title.startsWith(t + ' (') || title.startsWith(t + ':') )) score -= 200;
@@ -2461,7 +2473,7 @@ function renderRound() {
 function showLoading(genre) {
   const genreEmojis = {
     'Pop': '🎵', 'Rock': '🎸', 'R&B': '🎙️', 'Disney Classics': '✨',
-    'Country': '🤠', 'Hip-Hop/Rap': '🎤', '80s': '📼', '90s': '💿',
+    'Country': '🤠', 'Hip-Hop/Rap': '🎤', '70s': '🕺', '80s': '📼', '90s': '💿',
     '2010s': '📱', 'Throwbacks': '🕰️', 'Salsa': '💃', 'Merengue': '🥁',
     'Boleros': '🌹', 'Reggaeton': '🔥'
   };
