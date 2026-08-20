@@ -1545,6 +1545,10 @@ function setGameId(id) {
 
     const remote = JSON.parse(data.state);
     const isHost = !remote.hostToken || remote.hostToken === effectiveToken(id);
+    const active = document.querySelector('.screen.active')?.id;
+
+    // Don't act on updates while the player is still on the join/who-are-you screen
+    if (active === 'screen-join' || active === 'screen-link-join') return;
 
     const picksDiffer = JSON.stringify(remote.rounds?.at(-1)?.picks) !==
       JSON.stringify(G.rounds?.at(-1)?.picks);
@@ -1557,7 +1561,6 @@ function setGameId(id) {
 
     if (!isHost || picksDiffer || skipsDiffer || playersDiffer || statusDiffers || multiDeviceDiffers) {
       G = remote;
-      const active = document.querySelector('.screen.active')?.id;
 
       // Game complete — show results on non-host devices
       // (host already called showResults() locally)
@@ -1929,7 +1932,8 @@ window.joinGame = async () => {
     setGameId(id);
     G = JSON.parse(snap.data().state);
     G.multiDevice = true;
-    await saveState(); // push multiDevice flag so host's snapshot listener picks it up
+    // Don't save state here — the snapshot listener would fire on this device
+    // and could misroute based on stale gameStatus. Save happens after player selection.
 
     // If this device was the original host, restore identity and skip who-are-you screen
     const storedToken = getStoredHostToken(id);
@@ -1961,9 +1965,11 @@ window.joinGame = async () => {
   } catch(e) { showToast('Could not join — check the code'); }
 };
 
-window.joinAsPlayer = (name) => {
+window.joinAsPlayer = async (name) => {
   _myPlayer = name;
   G.activePlayer = name;
+  G.gameStatus = G.gameStatus === 'complete' ? 'complete' : 'playing';
+  await saveState(); // now safe to save — player is set, screen routing is correct
   if (G.gameStatus === 'complete') {
     showResults();
   } else if (G.gameStatus === 'recap') {
