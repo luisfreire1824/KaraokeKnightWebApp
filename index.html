@@ -1143,7 +1143,61 @@
   .group-id-input:focus { border-color: var(--accent); }
   .group-id-input::placeholder { color: var(--muted); font-size: 0.8rem; letter-spacing: 0; font-family: 'Inter', sans-serif; font-weight: 400; text-transform: none; }
 
-  /* ── STICKY GENRE BAR ── */
+  /* ── KARAOKE QUEUE ── */
+  .queue-section { margin-bottom: 1.5rem; }
+  .queue-header { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800; color: var(--text); margin-bottom: 0.25rem; }
+  .queue-sub { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.75rem; }
+  .queue-card {
+    display: flex; align-items: center; gap: 0.75rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.75rem; margin-bottom: 0.5rem;
+  }
+  .queue-num { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800; color: var(--accent); width: 1.5rem; text-align: center; flex-shrink: 0; }
+  .queue-art { width: 42px; height: 42px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--surface2); }
+  .queue-info { flex: 1; min-width: 0; }
+  .queue-song { font-weight: 600; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .queue-meta { font-size: 0.72rem; color: var(--muted); margin-top: 0.1rem; }
+
+  .queue-actions { display: flex; gap: 0.4rem; margin-top: 0.5rem; align-items: center; flex-wrap: wrap; }
+  .queue-search-btn {
+    font-size: 0.7rem; font-weight: 600; color: var(--accent);
+    background: var(--accent-glow); border: 1px solid var(--accent);
+    border-radius: 6px; padding: 0.25rem 0.55rem; cursor: pointer; text-decoration: none;
+    white-space: nowrap;
+  }
+  .queue-paste-btn {
+    font-size: 0.7rem; font-weight: 600; color: var(--text);
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.25rem 0.55rem; cursor: pointer; white-space: nowrap;
+  }
+  .queue-skip-btn {
+    font-size: 0.7rem; font-weight: 600; color: var(--muted);
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.25rem 0.55rem; cursor: pointer; white-space: nowrap;
+  }
+  .queue-status-linked {
+    font-size: 0.7rem; font-weight: 600; color: #4caf50;
+    display: flex; align-items: center; gap: 0.3rem;
+  }
+  .queue-status-skipped {
+    font-size: 0.7rem; color: var(--muted); font-style: italic;
+  }
+  .queue-paste-input {
+    width: 100%; margin-top: 0.4rem;
+    background: var(--surface2); border: 1.5px solid var(--accent);
+    color: var(--text); font-size: 0.75rem; padding: 0.4rem 0.6rem;
+    border-radius: 6px; outline: none;
+  }
+
+  .open-queue-btn {
+    display: block; width: 100%; margin: 1rem 0 0.5rem;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    color: #fff; font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800;
+    border: none; border-radius: 12px; padding: 0.9rem;
+    cursor: pointer; text-align: center; text-decoration: none;
+  }
+  .open-queue-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .queue-count-label { font-size: 0.7rem; color: var(--muted); text-align: center; margin-bottom: 1rem; }
   .sticky-genre-bar {
     position: sticky;
     top: 0;
@@ -1183,10 +1237,10 @@
       <div class="field-label">Players</div>
       <div id="player-inputs">
         <div class="player-row">
-          <input class="text-input" placeholder="Player 1 name" value="Luis" />
+          <input class="text-input" placeholder="Player 1 name" />
         </div>
         <div class="player-row">
-          <input class="text-input" placeholder="Player 2 name" value="Bibi" />
+          <input class="text-input" placeholder="Player 2 name" />
           <button class="remove-player-btn" onclick="removePlayer(this)">✕</button>
         </div>
       </div>
@@ -1492,25 +1546,45 @@ function setGameId(id) {
     const remote = JSON.parse(data.state);
     const isHost = !remote.hostToken || remote.hostToken === effectiveToken(id);
 
-    // Non-host devices always sync from Firestore
-    // Host devices only sync if state differs (another device made a pick)
     const picksDiffer = JSON.stringify(remote.rounds?.at(-1)?.picks) !==
       JSON.stringify(G.rounds?.at(-1)?.picks);
+    const skipsDiffer = JSON.stringify(remote.rounds?.at(-1)?.skips) !==
+      JSON.stringify(G.rounds?.at(-1)?.skips);
     const roundDiffers = remote.currentRound !== G.currentRound;
     const playersDiffer = JSON.stringify(remote.players) !== JSON.stringify(G.players);
+    const statusDiffers = remote.gameStatus !== G.gameStatus;
+    const multiDeviceDiffers = remote.multiDevice !== G.multiDevice;
 
-    if (!isHost || picksDiffer || playersDiffer) {
+    if (!isHost || picksDiffer || skipsDiffer || playersDiffer || statusDiffers || multiDeviceDiffers) {
       G = remote;
       const active = document.querySelector('.screen.active')?.id;
 
+      // Game complete — show results on all devices
+      if (G.gameStatus === 'complete') {
+        if (active !== 'screen-results') showResults();
+        return;
+      }
+
+      // Recap active — show recap on all devices
+      if (G.gameStatus === 'recap') {
+        if (active !== 'screen-game' || !document.querySelector('.recap-wrap')) {
+          showRoundRecap(G.history[G.history.length - 1], () => {
+            if (isHost) loadRound();
+            // non-host: wait for next round snapshot
+          });
+        }
+        return;
+      }
+
       if (roundDiffers && !isHost) {
-        // Host advanced — sync and re-render
         if (active === 'screen-game') {
           showLoading(remote.currentGenre);
           setTimeout(() => renderRound(), 300);
         }
       } else if (active === 'screen-game') {
         renderRound();
+        // If host, check if everyone is done
+        if (isHost) checkAllPlayersDone();
       }
     }
   });
@@ -1669,7 +1743,7 @@ const LEGEND_ARTISTS = new Set([
 ]);
 
 const ERA_RANGES = {
-  "70s": { core: [1970,1979], wide: [1965,1984] },
+  "70s": { core: [1970,1979], wide: [1967,1979] },
   "80s": { core: [1980,1989], wide: [1975,1993] },
   "90s": { core: [1990,1999], wide: [1985,2004] },
   "2010s": { core: [2010,2019], wide: [2006,2023] }
@@ -1853,6 +1927,7 @@ window.joinGame = async () => {
     setGameId(id);
     G = JSON.parse(snap.data().state);
     G.multiDevice = true;
+    await saveState(); // push multiDevice flag so host's snapshot listener picks it up
 
     // If this device was the original host, restore identity and skip who-are-you screen
     const storedToken = getStoredHostToken(id);
@@ -2520,6 +2595,7 @@ window.pickSong = async (idx) => {
   await saveState();
   renderRound();
   showToast(`"${song.trackName}" picked! 🎤`);
+  checkAllPlayersDone();
 
   // Pass-around: show handoff prompt only in single-phone mode
   const nextUnpicked = G.players.find(p => p !== me && !round.picks[p] && !round.skips?.[p]);
@@ -2543,6 +2619,7 @@ window.skipRound = async () => {
   await saveState();
   renderRound();
   showToast(`${me} is sitting this one out`);
+  checkAllPlayersDone();
 };
 
 window.unskipRound = async () => {
@@ -2613,6 +2690,24 @@ function stopPreview() {
   _previewingIdx = null;
 }
 
+function checkAllPlayersDone() {
+  const isHost = !G.hostToken || G.hostToken === effectiveToken(_gameId);
+  if (!isHost) return;
+  const round = G.rounds[G.currentRound - 1];
+  if (!round) return;
+  const allDone = G.players.every(p => round.picks[p] || round.skips?.[p]);
+  if (allDone) {
+    // Remove any existing banner first
+    document.getElementById('all-done-banner')?.remove();
+    const banner = document.createElement('div');
+    banner.id = 'all-done-banner';
+    banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-weight:700;font-size:0.85rem;padding:0.6rem 1.2rem;border-radius:20px;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,0.4);pointer-events:none;';
+    banner.textContent = '✅ Everyone\'s in — tap Next Round!';
+    document.body.appendChild(banner);
+    setTimeout(() => banner.remove(), 5000);
+  }
+}
+
 window.nextRound = async () => {
   if (G.hostToken && G.hostToken !== effectiveToken(_gameId)) return;
   const round = G.rounds[G.currentRound - 1];
@@ -2637,16 +2732,44 @@ window.nextRound = async () => {
   _myPlayer = _myPlayer || G.players[0];
 
   if (G.currentRound >= G.totalRounds) {
+    G.gameStatus = 'complete';
     await saveState();
     showResults();
   } else {
-    // Show between-round recap before loading next round
+    G.gameStatus = 'recap';
     await saveState();
-    showRoundRecap(roundHistory, () => loadRound());
+    showRoundRecap(roundHistory, async () => {
+      G.gameStatus = 'playing';
+      await loadRound();
+    });
   }
 };
 
+function renderRecapQueue(roundNum) {
+  if (!G.karaokeQueue?.[roundNum]) return;
+  const r = G.history.find(h => h.round === roundNum);
+  if (!r) return;
+  const section = renderQueueSection(roundNum, r.genre, G.karaokeQueue[roundNum], 'recap');
+  const container = document.getElementById('recap-queue-container');
+  if (container) container.innerHTML = section;
+}
+
 function showRoundRecap(roundHistory, onContinue) {
+  // Initialize queue for this round
+  if (!G.karaokeQueue) G.karaokeQueue = {};
+  if (!G.karaokeQueue[roundHistory.round]) {
+    G.karaokeQueue[roundHistory.round] = roundHistory.picks
+      .filter(p => p.song && !p.skipped)
+      .map(p => ({
+        trackName: p.song.trackName,
+        artistName: p.song.artistName,
+        artworkUrl: p.song.artworkUrl60 || '',
+        player: p.player,
+        videoId: null,
+        skipped: false
+      }));
+  }
+
   const pickCards = roundHistory.picks.map(p => {
     if (p.skipped) return `
       <div class="recap-pick-card">
@@ -2663,11 +2786,15 @@ function showRoundRecap(roundHistory, onContinue) {
         <div class="recap-info">
           <div class="recap-song">${esc(p.song.trackName)}</div>
           <div class="recap-artist">${esc(p.song.artistName)}</div>
-          <a class="recap-yt-link" href="https://www.youtube.com/results?search_query=${encodeURIComponent(p.song.trackName + ' ' + p.song.artistName + ' karaoke')}" target="_blank" rel="noopener">🎤 Sing it on YouTube</a>
         </div>
         <div class="recap-player">${esc(p.player)}</div>
       </div>`;
   }).join('');
+
+  const queueSection = renderQueueSection(
+    roundHistory.round, roundHistory.genre,
+    G.karaokeQueue[roundHistory.round], 'recap'
+  );
 
   document.getElementById('game-body').innerHTML = `
     <div class="recap-wrap">
@@ -2676,6 +2803,7 @@ function showRoundRecap(roundHistory, onContinue) {
         <div class="recap-genre">${esc(roundHistory.genre)}</div>
       </div>
       ${pickCards}
+      <div id="recap-queue-container">${queueSection}</div>
     </div>`;
 
   // Update bottom bar for recap state
@@ -2700,16 +2828,126 @@ window.skipGenre = async () => {
   showToast(`Skipping ${G.currentGenre}…`);
   await loadRound();
 };
+function extractYouTubeId(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('youtu.be')) return u.pathname.slice(1).split('?')[0];
+    return u.searchParams.get('v') || null;
+  } catch { return null; }
+}
+
 function showResults() {
-  let html = '';
+  // Initialize per-round queue from history if not already built
+  if (!G.karaokeQueue) G.karaokeQueue = {};
+  G.history.forEach(r => {
+    if (!G.karaokeQueue[r.round]) {
+      G.karaokeQueue[r.round] = r.picks
+        .filter(p => p.song && !p.skipped)
+        .map(p => ({
+          trackName: p.song.trackName,
+          artistName: p.song.artistName,
+          artworkUrl: p.song.artworkUrl60 || '',
+          player: p.player,
+          videoId: null,
+          skipped: false
+        }));
+    }
+  });
+
+  renderResults();
+  showScreen('results');
+}
+
+function renderQueueSection(roundNum, genre, items, context) {
+  // context: 'recap' (inline in game screen) or 'results' (results screen)
+  const prefix = `${context}-${roundNum}`;
+  const linkedIds = items.filter(q => q.videoId).map(q => q.videoId);
+  const linkedCount = linkedIds.length;
+  const totalCount = items.length;
+
+  const cards = items.map((q, i) => {
+    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(q.trackName + ' ' + q.artistName + ' karaoke')}`;
+    let statusHtml = '';
+    if (q.videoId) {
+      statusHtml = `
+        <div class="queue-actions">
+          <div class="queue-status-linked">✅ Linked <span style="opacity:0.6;font-weight:400">·
+            <a href="https://youtube.com/watch?v=${q.videoId}" target="_blank" rel="noopener" style="color:inherit">watch</a></span>
+          </div>
+          <button class="queue-skip-btn" onclick="queueClearLink('${prefix}',${roundNum},${i})">✕ Remove</button>
+        </div>`;
+    } else if (q.skipped) {
+      statusHtml = `
+        <div class="queue-actions">
+          <div class="queue-status-skipped">Skipped — no video</div>
+          <button class="queue-paste-btn" onclick="queueUnskip('${prefix}',${roundNum},${i})">Undo</button>
+        </div>`;
+    } else {
+      statusHtml = `
+        <div class="queue-actions">
+          <a class="queue-search-btn" href="${searchUrl}" target="_blank" rel="noopener">🔍 Find on YouTube</a>
+          <button class="queue-paste-btn" onclick="queueShowPaste('${prefix}',${i})">📋 Paste link</button>
+          <button class="queue-skip-btn" onclick="queueSkip('${prefix}',${roundNum},${i})">Skip</button>
+        </div>
+        <div id="queue-paste-row-${prefix}-${i}" style="display:none">
+          <input class="queue-paste-input" id="queue-paste-input-${prefix}-${i}"
+            placeholder="Paste YouTube URL here…"
+            onblur="queueSaveLink('${prefix}',${roundNum},${i},this.value)" />
+        </div>`;
+    }
+    return `
+      <div class="queue-card">
+        <div class="queue-num">${i + 1}</div>
+        <img class="queue-art" src="${esc(q.artworkUrl)}" alt="" />
+        <div class="queue-info">
+          <div class="queue-song">${esc(q.trackName)}</div>
+          <div class="queue-meta">${esc(q.artistName)} · ${esc(q.player)}</div>
+          ${statusHtml}
+        </div>
+      </div>`;
+  }).join('');
+
+  const roundQueueUrl = linkedIds.length
+    ? `https://www.youtube.com/watch_videos?video_ids=${linkedIds.join(',')}`
+    : null;
+
+  return `
+    <div class="queue-section" id="queue-section-${prefix}">
+      <div class="queue-header">🎤 Round ${roundNum} Queue — ${esc(genre)}</div>
+      <div class="queue-sub">${linkedCount} of ${totalCount} linked · Tap <strong>🔍 Find on YouTube</strong>, pick a karaoke video, copy its URL, then come back and tap <strong>📋 Paste link</strong>.</div>
+      ${cards}
+      ${roundQueueUrl
+        ? `<a class="open-queue-btn" href="${roundQueueUrl}" target="_blank" rel="noopener">▶ Open Round ${roundNum} in YouTube</a>`
+        : `<button class="open-queue-btn" disabled>▶ Open Round ${roundNum} in YouTube</button>`}
+    </div>`;
+}
+
+function renderResults() {
+  const queue = G.karaokeQueue || {};
+
+  // Build per-round queue sections
+  const roundSections = G.history.map(r =>
+    renderQueueSection(r.round, r.genre, queue[r.round] || [], 'results')
+  ).join('');
+
+  // Master queue button — all linked videos across all rounds
+  const allLinkedIds = Object.values(queue).flat().filter(q => q.videoId).map(q => q.videoId);
+  const masterUrl = allLinkedIds.length
+    ? `https://www.youtube.com/watch_videos?video_ids=${allLinkedIds.join(',')}`
+    : null;
+
+  const masterBtn = masterUrl
+    ? `<a class="open-queue-btn" href="${masterUrl}" target="_blank" rel="noopener" style="background:linear-gradient(90deg,#a855f7,#ec4899)">▶ Open All Rounds in YouTube (${allLinkedIds.length} songs)</a>`
+    : `<button class="open-queue-btn" disabled>▶ Open All Rounds in YouTube</button>`;
+
+  // Round summary
+  let summaryHtml = '';
   G.history.forEach(r => {
     const pickRows = r.picks.map(p => {
       if (p.skipped) return `
         <div class="results-pick">
           <div class="results-art" style="background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1rem;border-radius:5px;width:36px;height:36px;flex-shrink:0">—</div>
-          <div class="results-pick-info">
-            <div class="results-pick-title" style="color:var(--muted)">Sat this one out</div>
-          </div>
+          <div class="results-pick-info"><div class="results-pick-title" style="color:var(--muted)">Sat this one out</div></div>
           <div class="results-singer">${esc(p.player)}</div>
         </div>`;
       if (!p.song) return '';
@@ -2723,17 +2961,56 @@ function showResults() {
           <div class="results-singer">${esc(p.player)}</div>
         </div>`;
     }).join('');
-
-    html += `
+    summaryHtml += `
       <div class="results-round">
         <div class="results-round-label">Round ${r.round} — ${esc(r.genre)}</div>
         ${pickRows}
       </div>`;
   });
 
-  document.getElementById('results-body').innerHTML = html;
-  showScreen('results');
+  document.getElementById('results-body').innerHTML = `
+    <div style="margin-bottom:1rem">${masterBtn}</div>
+    ${roundSections}
+    <div class="queue-header" style="margin:1.5rem 0 0.75rem">📋 Round Summary</div>
+    ${summaryHtml}`;
 }
+
+// Queue interaction handlers
+window.queueShowPaste = (prefix, i) => {
+  const row = document.getElementById(`queue-paste-row-${prefix}-${i}`);
+  if (row) { row.style.display = 'block'; document.getElementById(`queue-paste-input-${prefix}-${i}`)?.focus(); }
+};
+
+window.queueSaveLink = async (prefix, roundNum, i, url) => {
+  if (!url?.trim()) return;
+  const videoId = extractYouTubeId(url.trim());
+  if (!videoId) { showToast('Couldn\'t read that URL — copy directly from YouTube'); return; }
+  if (!G.karaokeQueue) G.karaokeQueue = {};
+  if (!G.karaokeQueue[roundNum]) return;
+  G.karaokeQueue[roundNum][i].videoId = videoId;
+  G.karaokeQueue[roundNum][i].skipped = false;
+  await saveState();
+  prefix.startsWith('recap') ? renderRecapQueue(roundNum) : renderResults();
+  showToast('Video linked! ✅');
+};
+
+window.queueClearLink = async (prefix, roundNum, i) => {
+  if (G.karaokeQueue?.[roundNum]?.[i]) G.karaokeQueue[roundNum][i].videoId = null;
+  await saveState();
+  prefix.startsWith('recap') ? renderRecapQueue(roundNum) : renderResults();
+};
+
+window.queueSkip = async (prefix, roundNum, i) => {
+  if (G.karaokeQueue?.[roundNum]?.[i]) { G.karaokeQueue[roundNum][i].skipped = true; G.karaokeQueue[roundNum][i].videoId = null; }
+  await saveState();
+  prefix.startsWith('recap') ? renderRecapQueue(roundNum) : renderResults();
+};
+
+window.queueUnskip = async (prefix, roundNum, i) => {
+  if (G.karaokeQueue?.[roundNum]?.[i]) G.karaokeQueue[roundNum][i].skipped = false;
+  await saveState();
+  prefix.startsWith('recap') ? renderRecapQueue(roundNum) : renderResults();
+};
 
 window.playAgain = () => {
   // Clean up runtime state before going back to setup
