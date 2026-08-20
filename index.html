@@ -1428,7 +1428,7 @@ const flagsCol = collection(db, "karaoke-knight-flags");
 // without starving the pool, smaller genres need a tighter cap.
 const GENRE_HISTORY_CAPS = {
   'Pop': 150, 'Rock': 140, 'R&B': 120, 'Disney Classics': 60,
-  'Country': 110, 'Hip-Hop/Rap': 150, '80s': 140, '90s': 140,
+  'Country': 110, 'Hip-Hop/Rap': 150, '70s': 140, '80s': 140, '90s': 140,
   '2010s': 100, 'Throwbacks': 70,
   'Salsa': 100, 'Merengue': 80, 'Boleros': 90, 'Reggaeton': 100,
 };
@@ -1541,7 +1541,7 @@ function setGameId(id) {
     if (!snap.exists()) return;
     const data = snap.data();
     if (!data?.state || !data?.updatedAt) return;
-    if (data.updatedAt < _lastSavedAt) return;
+    if (data.updatedAt <= _lastSavedAt) return;
 
     const remote = JSON.parse(data.state);
     const isHost = !remote.hostToken || remote.hostToken === effectiveToken(id);
@@ -1559,17 +1559,19 @@ function setGameId(id) {
       G = remote;
       const active = document.querySelector('.screen.active')?.id;
 
-      // Game complete — show results on all devices
-      if (G.gameStatus === 'complete') {
+      // Game complete — show results on non-host devices
+      // (host already called showResults() locally)
+      if (G.gameStatus === 'complete' && !isHost) {
         if (active !== 'screen-results') showResults();
+        else renderResults(); // already on results — just re-render to sync queue links
         return;
       }
 
-      // Recap active — show recap on all devices
-      if (G.gameStatus === 'recap') {
+      // Recap active — show recap on non-host devices only
+      // (host already triggered this locally; don't double-fire)
+      if (G.gameStatus === 'recap' && !isHost) {
         if (active !== 'screen-game' || !document.querySelector('.recap-wrap')) {
           showRoundRecap(G.history[G.history.length - 1], () => {
-            if (isHost) loadRound();
             // non-host: wait for next round snapshot
           });
         }
@@ -1962,8 +1964,15 @@ window.joinGame = async () => {
 window.joinAsPlayer = (name) => {
   _myPlayer = name;
   G.activePlayer = name;
-  showScreen('game');
-  renderRound();
+  if (G.gameStatus === 'complete') {
+    showResults();
+  } else if (G.gameStatus === 'recap') {
+    showScreen('game');
+    showRoundRecap(G.history[G.history.length - 1], () => {});
+  } else {
+    showScreen('game');
+    renderRound();
+  }
   showToast(`You're playing as ${name} 🎤`);
 };
 
@@ -1979,6 +1988,8 @@ window.confirmNewPlayer = async () => {
   G.players.push(name);
   _myPlayer = name;
   G.activePlayer = name;
+  // Don't let stale gameStatus persist when a new player joins
+  if (G.gameStatus !== 'complete' && G.gameStatus !== 'recap') G.gameStatus = 'playing';
   await saveState();
   showScreen('game');
   renderRound();
@@ -2000,6 +2011,7 @@ window.shareGame = async () => {
 // ── GAME ──
 async function loadRound() {
   G.currentRound++;
+  G.gameStatus = 'playing';
   const genre = pickGenre();
   G.currentGenre = genre;
   G.usedGenres.push(genre);
@@ -2576,32 +2588,39 @@ function showLoading(genre) {
 
 // ── INTERACTIONS ──
 window.switchActivePlayer = (name) => {
-  // Pass-around mode: switch whose pick context we're viewing/editing
+  // In multi-device mode, don't allow switching to another player's context
+  if (G.multiDevice) return;
   _myPlayer = name;
   renderRound();
 };
 
+let _pickLock = false;
 window.pickSong = async (idx) => {
-  const me = _myPlayer || G.players[0];
-  const round = G.rounds[G.currentRound - 1];
-  const song = round.shown[idx];
+  if (_pickLock) return;
+  _pickLock = true;
+  try {
+    const me = _myPlayer || G.players[0];
+    const round = G.rounds[G.currentRound - 1];
+    const song = round.shown[idx];
 
-  round.picks[me] = song;
-  if (round.skips?.[me]) delete round.skips[me];
+    round.picks[me] = song;
+    if (round.skips?.[me]) delete round.skips[me];
 
-  addToDeviceHistory(round.genre, 'picked', [song.trackId]);
+    addToDeviceHistory(round.genre, 'picked', [song.trackId]);
 
-  stopPreview();
-  await saveState();
-  renderRound();
-  showToast(`"${song.trackName}" picked! 🎤`);
-  checkAllPlayersDone();
+    stopPreview();
+    await saveState();
+    renderRound();
+    showToast(`"${song.trackName}" picked! 🎤`);
+    checkAllPlayersDone();
 
-  // Pass-around: show handoff prompt only in single-phone mode
-  const nextUnpicked = G.players.find(p => p !== me && !round.picks[p] && !round.skips?.[p]);
-  if (nextUnpicked && !G.multiDevice) {
-    document.getElementById('handoff-name').textContent = nextUnpicked;
-    document.getElementById('handoff-overlay').classList.remove('hidden');
+    const nextUnpicked = G.players.find(p => p !== me && !round.picks[p] && !round.skips?.[p]);
+    if (nextUnpicked && !G.multiDevice) {
+      document.getElementById('handoff-name').textContent = nextUnpicked;
+      document.getElementById('handoff-overlay').classList.remove('hidden');
+    }
+  } finally {
+    _pickLock = false;
   }
 };
 
@@ -2612,14 +2631,14 @@ window.dismissHandoff = () => {
 window.skipRound = async () => {
   const me = _myPlayer || G.players[0];
   const round = G.rounds[G.currentRound - 1];
+  const isHost = !G.hostToken || G.hostToken === effectiveToken(_gameId);
   if (!round.skips) round.skips = {};
   round.skips[me] = true;
-  // Clear any pick they had
   if (round.picks[me]) delete round.picks[me];
-  await saveState();
+  await saveState(); // all devices save picks/skips — this is lightweight player action state
   renderRound();
   showToast(`${me} is sitting this one out`);
-  checkAllPlayersDone();
+  if (isHost) checkAllPlayersDone();
 };
 
 window.unskipRound = async () => {
@@ -2631,35 +2650,41 @@ window.unskipRound = async () => {
 };
 
 window.showMore = async () => {
-  const round = G.rounds[G.currentRound - 1];
-  const roundIdx = G.currentRound - 1;
-  const isHost = !G.hostToken || G.hostToken === effectiveToken(_gameId);
+  try {
+    const round = G.rounds[G.currentRound - 1];
+    const roundIdx = G.currentRound - 1;
 
-  // Get pools from memory cache; if not available (joiner device), refetch from iTunes
-  let pools = getCachedPools(roundIdx);
-  if (!pools) {
-    showToast('Fetching more songs…');
-    const fetched = await fetchAndScore(round.genre);
-    cacheRoundPools(roundIdx, fetched.classicPool, fetched.wowPool);
-    pools = fetched;
+    let pools = getCachedPools(roundIdx);
+    if (!pools) {
+      showToast('Fetching more songs…');
+      try {
+        const fetched = await fetchAndScore(round.genre);
+        cacheRoundPools(roundIdx, fetched.classicPool, fetched.wowPool);
+        pools = fetched;
+      } catch(fetchErr) {
+        console.error('[KK] showMore fetch failed:', fetchErr);
+        showToast('Couldn\'t fetch songs — tap Show More to retry');
+        return;
+      }
+    }
+
+    const newBatch = buildBatch(pools.classicPool, pools.wowPool, round.shown, 4);
+    if (!newBatch.length) return showToast('No more songs available for this genre');
+    round.shown = [...round.shown, ...newBatch];
+
+    if (!G.seenTrackIdsByGenre) G.seenTrackIdsByGenre = {};
+    const existing = new Set(G.seenTrackIdsByGenre[round.genre] || []);
+    newBatch.forEach(s => existing.add(s.trackId));
+    G.seenTrackIdsByGenre[round.genre] = [...existing];
+
+    addToDeviceHistory(round.genre, 'shown', newBatch.map(s => s.trackId));
+
+    await saveState();
+    renderRound();
+  } catch(e) {
+    console.error('[KK] showMore error:', e);
+    showToast('Something went wrong — tap Show More to retry');
   }
-
-  const newBatch = buildBatch(pools.classicPool, pools.wowPool, round.shown, 4);
-  if (!newBatch.length) return showToast('No more songs available');
-  round.shown = [...round.shown, ...newBatch];
-
-  // Record in session-level seen tracker
-  if (!G.seenTrackIdsByGenre) G.seenTrackIdsByGenre = {};
-  const existing = new Set(G.seenTrackIdsByGenre[round.genre] || []);
-  newBatch.forEach(s => existing.add(s.trackId));
-  G.seenTrackIdsByGenre[round.genre] = [...existing];
-
-  // Record in device-level history
-  addToDeviceHistory(round.genre, 'shown', newBatch.map(s => s.trackId));
-
-  // Only host saves state — joiners keep shown list local only
-  if (isHost) await saveState();
-  renderRound();
 };
 
 window.togglePreview = (idx) => {
@@ -3015,20 +3040,28 @@ window.queueUnskip = async (prefix, roundNum, i) => {
 };
 
 window.playAgain = () => {
-  // Clean up runtime state before going back to setup
   _myPlayer = null;
   _gameId = null;
   _gameRef = null;
   if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
-  // Clear pool cache
   Object.keys(_roundPoolCache).forEach(k => delete _roundPoolCache[k]);
-  // Clear URL param
+  // Reset G to clean slate
+  G = {
+    players: [], totalRounds: 5, lang: 'EN', currentRound: 0,
+    currentGenre: '', usedGenres: [], rounds: [], activePlayer: null,
+    history: [], gameStatus: null, multiDevice: false, karaokeQueue: null,
+    groupId: null, selectedGenres: []
+  };
   const url = new URL(window.location.href);
   url.searchParams.delete('game');
   window.history.replaceState({}, '', url.toString());
-  // Clear join input so old game code doesn't linger
   const joinInput = document.getElementById('join-input');
   if (joinInput) joinInput.value = '';
+  // Re-init genre grid with default EN language
+  initGenreGrid('EN');
+  document.querySelectorAll('#lang-seg .seg-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.lang === 'EN')
+  );
   showScreen('setup');
 };
 
