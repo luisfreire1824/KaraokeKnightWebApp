@@ -689,20 +689,20 @@
   .results-sub { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.5rem; }
 
   .results-round {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 0.9rem 1rem;
+    padding: 0.75rem 1rem;
   }
 
   .results-round-label {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--accent);
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.5rem;
   }
 
   .results-pick {
@@ -715,9 +715,9 @@
   .results-pick:last-child { margin-bottom: 0; }
 
   .results-art {
-    width: 36px;
-    height: 36px;
-    border-radius: 5px;
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
     object-fit: cover;
     flex-shrink: 0;
   }
@@ -725,20 +725,46 @@
   .results-pick-info { flex: 1; min-width: 0; }
 
   .results-pick-title {
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 1rem;
+    font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .results-pick-meta { font-size: 0.72rem; color: var(--muted); margin-top: 0.1rem; }
+  .results-pick-meta { font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; }
 
   .results-singer {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 700;
     color: var(--accent2);
     flex-shrink: 0;
+  }
+
+  .open-queue-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.6rem 0 0.25rem;
+    background: var(--surface2);
+    border: 1.5px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 0.4rem 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    width: auto;
+  }
+  .open-queue-btn:disabled { opacity: 0.3; cursor: not-allowed; border-color: var(--muted); color: var(--muted); }
+  .open-queue-btn.master {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    color: #fff; border: none;
+    font-size: 0.85rem; padding: 0.55rem 1.1rem;
+    display: flex; width: 100%; justify-content: center;
+    margin: 0 0 1.25rem;
   }
 
   .play-again-btn {
@@ -1189,14 +1215,6 @@
     border-radius: 6px; outline: none;
   }
 
-  .open-queue-btn {
-    display: block; width: 100%; margin: 1rem 0 0.5rem;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    color: #fff; font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800;
-    border: none; border-radius: 12px; padding: 0.9rem;
-    cursor: pointer; text-align: center; text-decoration: none;
-  }
-  .open-queue-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .queue-count-label { font-size: 0.7rem; color: var(--muted); text-align: center; margin-bottom: 1rem; }
   .sticky-genre-bar {
     position: sticky;
@@ -1558,9 +1576,27 @@ function setGameId(id) {
     const playersDiffer = JSON.stringify(remote.players) !== JSON.stringify(G.players);
     const statusDiffers = remote.gameStatus !== G.gameStatus;
     const multiDeviceDiffers = remote.multiDevice !== G.multiDevice;
+    const queueDiffers = JSON.stringify(remote.karaokeQueue) !== JSON.stringify(G.karaokeQueue);
 
-    if (!isHost || picksDiffer || skipsDiffer || playersDiffer || statusDiffers || multiDeviceDiffers) {
+    if (!isHost || picksDiffer || skipsDiffer || playersDiffer || statusDiffers || multiDeviceDiffers || queueDiffers) {
+      // Preserve local karaokeQueue links before overwriting G
+      const localQueue = G.karaokeQueue;
       G = remote;
+      // Merge queue — don't lose links either device has added
+      if (localQueue && G.karaokeQueue) {
+        Object.keys(localQueue).forEach(roundNum => {
+          if (!G.karaokeQueue[roundNum]) return;
+          G.karaokeQueue[roundNum].forEach((item, i) => {
+            const localItem = localQueue[roundNum]?.[i];
+            if (localItem?.videoId && !item.videoId) {
+              G.karaokeQueue[roundNum][i].videoId = localItem.videoId;
+              G.karaokeQueue[roundNum][i].skipped = localItem.skipped;
+            }
+          });
+        });
+      } else if (localQueue && !G.karaokeQueue) {
+        G.karaokeQueue = localQueue;
+      }
 
       // Game complete — show results on non-host devices
       // (host already called showResults() locally)
@@ -1588,8 +1624,9 @@ function setGameId(id) {
         }
       } else if (active === 'screen-game') {
         renderRound();
-        // If host, check if everyone is done
         if (isHost) checkAllPlayersDone();
+      } else if (active === 'screen-results' && queueDiffers) {
+        renderResults();
       }
     }
   });
@@ -2970,8 +3007,8 @@ function renderResults() {
     : null;
 
   const masterBtn = masterUrl
-    ? `<a class="open-queue-btn" href="${masterUrl}" target="_blank" rel="noopener" style="background:linear-gradient(90deg,#a855f7,#ec4899)">▶ Open All Rounds in YouTube (${allLinkedIds.length} songs)</a>`
-    : `<button class="open-queue-btn" disabled>▶ Open All Rounds in YouTube</button>`;
+    ? `<a class="open-queue-btn master" href="${masterUrl}" target="_blank" rel="noopener">▶ Open All Rounds in YouTube (${allLinkedIds.length} songs)</a>`
+    : `<button class="open-queue-btn master" disabled>▶ Open All Rounds in YouTube</button>`;
 
   // Round summary
   let summaryHtml = '';
