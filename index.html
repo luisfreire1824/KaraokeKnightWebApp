@@ -2633,6 +2633,7 @@ window.unskipRound = async () => {
 window.showMore = async () => {
   const round = G.rounds[G.currentRound - 1];
   const roundIdx = G.currentRound - 1;
+  const isHost = !G.hostToken || G.hostToken === effectiveToken(_gameId);
 
   // Get pools from memory cache; if not available (joiner device), refetch from iTunes
   let pools = getCachedPools(roundIdx);
@@ -2656,7 +2657,8 @@ window.showMore = async () => {
   // Record in device-level history
   addToDeviceHistory(round.genre, 'shown', newBatch.map(s => s.trackId));
 
-  await saveState();
+  // Only host saves state — joiners keep shown list local only
+  if (isHost) await saveState();
   renderRound();
 };
 
