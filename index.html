@@ -1216,6 +1216,29 @@
   }
 
   .queue-count-label { font-size: 0.7rem; color: var(--muted); text-align: center; margin-bottom: 1rem; }
+
+  /* ── GENRE TESTER ── */
+  .tester-song {
+    display: flex; align-items: flex-start; gap: 0.6rem;
+    padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.78rem;
+  }
+  .tester-song:last-child { border-bottom: none; }
+  .tester-art { width: 36px; height: 36px; border-radius: 5px; object-fit: cover; flex-shrink: 0; background: var(--surface2); }
+  .tester-info { flex: 1; min-width: 0; }
+  .tester-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tester-meta { font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; }
+  .tester-score {
+    font-size: 0.68rem; font-weight: 700; flex-shrink: 0; text-align: right;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem;
+  }
+  .tester-pool-classic { color: var(--accent); }
+  .tester-pool-wow { color: var(--accent2); }
+  .tester-pool-killed { color: #888; }
+  .tester-section-label {
+    font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--muted); margin: 0.75rem 0 0.35rem;
+  }
+
   .sticky-genre-bar {
     position: sticky;
     top: 0;
@@ -1338,7 +1361,15 @@
 <!-- ══ GAME SCREEN ══ -->
 <div class="screen" id="screen-game">
   <div class="app-header">
-    <div class="logo" onclick="window._activateDevPanel()">🎤 Karaoke Knight</div>
+    <div class="logo"
+      onclick="window._activateDevPanel()"
+      onmousedown="window._startLogoHold()"
+      onmouseup="window._cancelLogoHold()"
+      onmouseleave="window._cancelLogoHold()"
+      ontouchstart="window._startLogoHold()"
+      ontouchend="window._cancelLogoHold()"
+      ontouchcancel="window._cancelLogoHold()"
+    >🎤 Karaoke Knight</div>
     <div style="display:flex;align-items:center;gap:0.6rem;">
       <div class="header-meta" id="game-header-meta"></div>
       <button class="share-btn" id="share-btn" onclick="shareGame()" title="Share game link">🔗</button>
@@ -1420,6 +1451,59 @@
   <button class="dev-btn danger" onclick="clearDeviceHistory()">🗑 Clear device history</button>
 </div>
 
+<!-- ══ GENRE TESTER PANEL ══ -->
+<div class="dev-panel" id="genre-tester-panel">
+  <button class="dev-close" onclick="closeGenreTester()">✕</button>
+  <div class="dev-title">🔬 Genre Tester</div>
+
+  <!-- Tab bar -->
+  <div style="display:flex;gap:0.25rem;margin-bottom:1rem;background:var(--surface2);border-radius:8px;padding:0.25rem">
+    <button id="tester-tab-seed" onclick="switchTesterTab('seed')" style="flex:1;padding:0.35rem;border-radius:6px;border:none;font-size:0.72rem;font-weight:700;cursor:pointer;background:var(--accent);color:#fff">Seeded Pool</button>
+    <button id="tester-tab-artist" onclick="switchTesterTab('artist')" style="flex:1;padding:0.35rem;border-radius:6px;border:none;font-size:0.72rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted)">Audition Artist</button>
+    <button id="tester-tab-browse" onclick="switchTesterTab('browse')" style="flex:1;padding:0.35rem;border-radius:6px;border:none;font-size:0.72rem;font-weight:700;cursor:pointer;background:transparent;color:var(--muted)">Browse Genre</button>
+  </div>
+
+  <!-- Tab: Seeded Pool -->
+  <div id="tester-pane-seed">
+    <div class="dev-sub" style="margin-bottom:0.6rem">What the current seed list produces for a genre</div>
+    <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;flex-wrap:wrap">
+      <select id="tester-genre-select" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);font-size:0.85rem;padding:0.4rem 0.6rem;border-radius:8px;outline:none"></select>
+      <select id="tester-lang-select" style="background:var(--surface2);border:1.5px solid var(--border);color:var(--text);font-size:0.85rem;padding:0.4rem 0.6rem;border-radius:8px;outline:none">
+        <option value="EN">EN</option>
+        <option value="ES">ES</option>
+        <option value="BOTH">BOTH</option>
+      </select>
+      <button class="dev-btn" style="margin:0" onclick="runGenreTest()">▶ Fetch</button>
+    </div>
+    <div id="tester-status" style="font-size:0.75rem;color:var(--muted);margin-bottom:0.5rem"></div>
+    <div id="tester-results"></div>
+  </div>
+
+  <!-- Tab: Audition Artist -->
+  <div id="tester-pane-artist" style="display:none">
+    <div class="dev-sub" style="margin-bottom:0.6rem">Search any artist and score their songs against a genre</div>
+    <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;flex-wrap:wrap">
+      <input id="tester-artist-input" placeholder="e.g. Marc Anthony" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);font-size:0.85rem;padding:0.4rem 0.6rem;border-radius:8px;outline:none;min-width:120px" />
+      <select id="tester-artist-genre" style="background:var(--surface2);border:1.5px solid var(--border);color:var(--text);font-size:0.85rem;padding:0.4rem 0.6rem;border-radius:8px;outline:none"></select>
+      <button class="dev-btn" style="margin:0" onclick="runArtistAudition()">▶ Audition</button>
+    </div>
+    <div id="tester-artist-status" style="font-size:0.75rem;color:var(--muted);margin-bottom:0.5rem"></div>
+    <div id="tester-artist-results"></div>
+  </div>
+
+  <!-- Tab: Browse Genre -->
+  <div id="tester-pane-browse" style="display:none">
+    <div class="dev-sub" style="margin-bottom:0.6rem">Search iTunes by genre keyword — discover artists you haven't seeded</div>
+    <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;flex-wrap:wrap">
+      <input id="tester-browse-input" placeholder="e.g. salsa, merengue, 70s rock…" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);font-size:0.85rem;padding:0.4rem 0.6rem;border-radius:8px;outline:none;min-width:120px" />
+      <select id="tester-browse-genre" style="background:var(--surface2);border:1.5px solid var(--border);color:var(--text);font-size:0.85rem;padding:0.4rem 0.6rem;border-radius:8px;outline:none"></select>
+      <button class="dev-btn" style="margin:0" onclick="runGenreBrowse()">▶ Browse</button>
+    </div>
+    <div id="tester-browse-status" style="font-size:0.75rem;color:var(--muted);margin-bottom:0.5rem"></div>
+    <div id="tester-browse-results"></div>
+  </div>
+</div>
+
 <audio id="audio-player" onended="onAudioEnded()"></audio>
 
 <!-- Firebase -->
@@ -1447,6 +1531,7 @@ const flagsCol = collection(db, "karaoke-knight-flags");
 const GENRE_HISTORY_CAPS = {
   'Pop': 150, 'Rock': 140, 'R&B': 120, 'Disney Classics': 60,
   'Country': 110, 'Hip-Hop/Rap': 150, '70s': 140, '80s': 140, '90s': 140,
+  '2010s': 130, 'Throwbacks': 100, 'Latin Pop': 120, 'Banda & Norteño': 100,
   '2010s': 100, 'Throwbacks': 70,
   'Salsa': 100, 'Merengue': 80, 'Boleros': 90, 'Reggaeton': 100,
 };
@@ -1514,7 +1599,157 @@ async function addToGroupHistory(groupId, genre, trackIds) {
   } catch(e) { console.warn('Group history save failed', e); }
 }
 
-// ── GAME ID SYSTEM ──
+// ── LOGO LONG-PRESS → GENRE TESTER ──
+let _logoHoldTimer = null;
+window._startLogoHold = () => {
+  _logoHoldTimer = setTimeout(() => { _logoHoldTimer = null; openGenreTester(); }, 7000);
+};
+window._cancelLogoHold = () => {
+  if (_logoHoldTimer) { clearTimeout(_logoHoldTimer); _logoHoldTimer = null; }
+};
+
+function openGenreTester() {
+  const allGenres = [...GENRES.EN, ...GENRES.ES];
+  const opts = allGenres.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
+  ['tester-genre-select','tester-artist-genre','tester-browse-genre'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = opts;
+  });
+  document.getElementById('tester-results').innerHTML = '';
+  document.getElementById('tester-status').textContent = '';
+  document.getElementById('genre-tester-panel').classList.add('visible');
+  switchTesterTab('seed');
+}
+
+window.closeGenreTester = () => {
+  document.getElementById('genre-tester-panel').classList.remove('visible');
+};
+
+window.switchTesterTab = (tab) => {
+  ['seed','artist','browse'].forEach(t => {
+    document.getElementById(`tester-pane-${t}`).style.display = t === tab ? '' : 'none';
+    const btn = document.getElementById(`tester-tab-${t}`);
+    btn.style.background = t === tab ? 'var(--accent)' : 'transparent';
+    btn.style.color = t === tab ? '#fff' : 'var(--muted)';
+  });
+};
+
+// ── TAB 1: Seeded Pool ──
+window.runGenreTest = async () => {
+  const genre = document.getElementById('tester-genre-select').value;
+  const lang = document.getElementById('tester-lang-select').value;
+  const status = document.getElementById('tester-status');
+  const results = document.getElementById('tester-results');
+  status.textContent = `Fetching ${genre} (${lang})…`;
+  results.innerHTML = '';
+  const prevLang = G.lang;
+  G.lang = lang;
+  try {
+    const { classicPool, wowPool, killedCount } = await fetchAndScore(genre);
+    G.lang = prevLang;
+    status.textContent = `✓ ${classicPool.length} classic · ${wowPool.length} wow · ${killedCount} killed`;
+    const artistMap = {};
+    [...classicPool, ...wowPool].forEach(s => {
+      const a = s.artistName || 'Unknown';
+      artistMap[a] = (artistMap[a] || 0) + 1;
+    });
+    const artistBreakdown = Object.entries(artistMap)
+      .sort((a,b) => b[1]-a[1])
+      .map(([a,c]) => `<span style="margin-right:0.5rem">${esc(a)} (${c})</span>`).join('');
+    results.innerHTML =
+      `<div class="tester-section-label">Artists in pool</div>
+       <div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.75rem;line-height:1.8">${artistBreakdown}</div>` +
+      renderTesterSongs('⭐ Classic Pool', classicPool, 'tester-pool-classic') +
+      renderTesterSongs('✨ Wow Pool', wowPool, 'tester-pool-wow');
+  } catch(e) {
+    G.lang = prevLang;
+    status.textContent = `Error: ${e.message}`;
+  }
+};
+
+// ── TAB 2: Audition Artist ──
+window.runArtistAudition = async () => {
+  const artist = document.getElementById('tester-artist-input').value.trim();
+  const genre = document.getElementById('tester-artist-genre').value;
+  const status = document.getElementById('tester-artist-status');
+  const results = document.getElementById('tester-artist-results');
+  if (!artist) { status.textContent = 'Enter an artist name'; return; }
+  status.textContent = `Fetching ${artist} for ${genre}…`;
+  results.innerHTML = '';
+  try {
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(artist)}&entity=song&limit=50&country=US`;
+    const data = await fetch(url).then(r => r.json());
+    const tracks = (data.results || []).map((t,i) => ({ ...t, _resultPos: i }));
+    const artistCounts = {};
+    tracks.forEach(t => { const a=(t.artistName||'').toLowerCase(); artistCounts[a]=(artistCounts[a]||0)+1; });
+    const scored = tracks.map(t => ({ ...t, _score: scoreTrack(t, genre, artistCounts) }));
+    const passed = scored.filter(t => t._score > -50);
+    const killed = scored.filter(t => t._score <= -50);
+    const seeded = (GENRE_SEARCH_TERMS[genre]?.terms||[...(GENRE_SEARCH_TERMS[genre]?.termsEN||[]),...(GENRE_SEARCH_TERMS[genre]?.termsES||[])])
+      .some(t => t.toLowerCase().includes(artist.toLowerCase()));
+    status.textContent = `✓ ${passed.length} survive · ${killed.length} killed${seeded ? ' · ✅ Already seeded' : ' · ⚠️ Not yet seeded'}`;
+    results.innerHTML =
+      renderTesterSongs('✅ Would survive', passed, 'tester-pool-classic') +
+      renderTesterSongs('❌ Killed by filter', killed, 'tester-pool-killed');
+  } catch(e) { status.textContent = `Error: ${e.message}`; }
+};
+
+// ── TAB 3: Browse Genre ──
+window.runGenreBrowse = async () => {
+  const term = document.getElementById('tester-browse-input').value.trim();
+  const genre = document.getElementById('tester-browse-genre').value;
+  const status = document.getElementById('tester-browse-status');
+  const results = document.getElementById('tester-browse-results');
+  if (!term) { status.textContent = 'Enter a keyword to browse'; return; }
+  status.textContent = `Browsing iTunes for "${term}"…`;
+  results.innerHTML = '';
+  try {
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=100&country=US`;
+    const data = await fetch(url).then(r => r.json());
+    const tracks = (data.results||[]).map((t,i) => ({ ...t, _resultPos: i }));
+    const artistCounts = {};
+    tracks.forEach(t => { const a=(t.artistName||'').toLowerCase(); artistCounts[a]=(artistCounts[a]||0)+1; });
+    const scored = tracks.map(t => ({ ...t, _score: scoreTrack(t, genre, artistCounts) }));
+    const passed = scored.filter(t => t._score > -50);
+    const seededTerms = new Set(
+      [...(GENRE_SEARCH_TERMS[genre]?.terms||[]),
+       ...(GENRE_SEARCH_TERMS[genre]?.termsEN||[]),
+       ...(GENRE_SEARCH_TERMS[genre]?.termsES||[])].map(t => t.toLowerCase())
+    );
+    const artistMap = {};
+    passed.forEach(s => { const a=s.artistName||'Unknown'; artistMap[a]=(artistMap[a]||0)+1; });
+    const artistBreakdown = Object.entries(artistMap)
+      .sort((a,b) => b[1]-a[1])
+      .map(([a,c]) => {
+        const isSeeded = seededTerms.has(a.toLowerCase());
+        return `<span style="${isSeeded?'color:var(--muted)':'color:var(--accent2);font-weight:700'};margin-right:0.5rem">${esc(a)} (${c})${isSeeded?'':' ★'}</span>`;
+      }).join('');
+    status.textContent = `✓ ${passed.length}/${tracks.length} survived · ★ = not yet seeded in ${genre}`;
+    results.innerHTML =
+      `<div class="tester-section-label">Artists found</div>
+       <div style="font-size:0.7rem;line-height:1.8;margin-bottom:0.75rem">${artistBreakdown}</div>` +
+      renderTesterSongs('Surviving songs', passed, 'tester-pool-classic');
+  } catch(e) { status.textContent = `Error: ${e.message}`; }
+};
+
+function renderTesterSongs(label, songs, scoreClass) {
+  if (!songs.length) return '';
+  return `
+    <div class="tester-section-label">${label} (${songs.length})</div>
+    ${songs.map(s => `
+      <div class="tester-song">
+        <img class="tester-art" src="${s.artworkUrl60||''}" alt="" />
+        <div class="tester-info">
+          <div class="tester-title">${esc(s.trackName)}</div>
+          <div class="tester-meta">${esc(s.artistName)} · ${s.releaseDate ? new Date(s.releaseDate).getFullYear() : '?'}</div>
+        </div>
+        <div class="tester-score">
+          <span class="${scoreClass}">${s._score??'?'}</span>
+          ${s._deepCut?'<span style="font-size:0.6rem;color:var(--accent2)">✨</span>':''}
+        </div>
+      </div>`).join('')}`;
+}
+
 let _gameId = null;
 let _gameRef = null;
 let _unsubscribe = null;
@@ -1618,11 +1853,11 @@ function setGameId(id) {
       }
 
       if (roundDiffers && !isHost) {
-        if (active === 'screen-game') {
+        if (active === 'screen-game' && !_rendering) {
           showLoading(remote.currentGenre);
-          setTimeout(() => renderRound(), 300);
+          setTimeout(() => renderRound(), 80);
         }
-      } else if (active === 'screen-game') {
+      } else if (active === 'screen-game' && !_rendering) {
         renderRound();
         if (isHost) checkAllPlayersDone();
       } else if (active === 'screen-results' && queueDiffers) {
@@ -1649,139 +1884,248 @@ let _flagTargetIdx = null;
 
 // ── GENRES ──
 const GENRES = {
-  EN: ["Pop","Rock","R&B","Disney Classics","Country","Hip-Hop/Rap","70s","80s","90s","2010s","Throwbacks"],
+  EN: ["Pop","Rock","R&B","Disney Classics","Country","Hip-Hop/Rap","70s","80s","90s","2010s","Throwbacks","Latin Pop","Banda & Norteño"],
   ES: ["Salsa","Merengue","Boleros","Reggaeton"]
 };
 
 const GENRE_SEARCH_TERMS = {
+
   "Pop": { terms: [
     "michael jackson", "whitney houston", "mariah carey",
-    "madonna", "prince", "beyonce", "bruno mars",
-    "adele", "taylor swift", "ed sheeran"
+    "madonna", "beyonce", "bruno mars", "adele",
+    "taylor swift", "ed sheeran", "lionel richie",
+    "celine dion", "elton john", "lady gaga",
+    "ariana grande", "justin timberlake", "dua lipa",
+    "rihanna", "katy perry", "shakira", "selena gomez"
   ], countries: ["US"] },
 
   "Rock": {
-    termsEN: ["bon jovi", "guns n roses", "led zeppelin", "queen", "aerosmith", "the rolling stones", "van halen", "journey", "def leppard", "pink floyd"],
+    termsEN: [
+      "bon jovi", "guns n roses", "led zeppelin", "queen", "aerosmith",
+      "the rolling stones", "van halen", "journey", "def leppard", "pink floyd",
+      "the police", "u2", "a-ha", "george michael", "phil collins"
+    ],
     termsES: [
       "mana", "soda stereo", "cafe tacuba", "los fabulosos cadillacs",
       "hombres g", "enanitos verdes", "heroes del silencio", "jaguares",
-      "molotov", "caifanes", "el tri", "los enanitos verdes",
-      "fobia", "la ley", "bunbury"
+      "molotov", "caifanes", "el tri", "fobia", "la ley", "bunbury", "mecano"
     ],
     countries: ["US","MX"]
   },
 
   "R&B": { terms: [
     "aretha franklin", "stevie wonder", "al green",
-    "marvin gaye", "r kelly", "usher", "alicia keys",
-    "boyz ii men", "tlc", "en vogue", "d'angelo"
+    "marvin gaye", "usher", "alicia keys",
+    "boyz ii men", "tlc", "en vogue",
+    "mary j blige", "janet jackson", "ne-yo",
+    "monica", "john legend", "maxwell"
   ], countries: ["US"] },
 
   "Disney Classics": { terms: [
-    "disney classic animated songs", "disney princess songs",
     "the little mermaid soundtrack", "beauty and the beast songs",
-    "lion king songs", "aladdin songs"
+    "lion king songs", "aladdin songs", "frozen soundtrack",
+    "moana soundtrack", "tangled soundtrack", "encanto soundtrack",
+    "mulan soundtrack", "pocahontas soundtrack"
   ], countries: ["US"] },
 
   "Country": { terms: [
     "johnny cash", "dolly parton", "kenny rogers",
     "garth brooks", "shania twain", "willie nelson",
-    "george strait", "reba mcentire", "carrie underwood"
+    "george strait", "reba mcentire", "carrie underwood",
+    "tim mcgraw", "faith hill", "brad paisley",
+    "blake shelton", "luke bryan", "miranda lambert"
   ], countries: ["US"] },
 
   "Hip-Hop/Rap": { terms: [
     "notorious big", "tupac shakur", "eminem",
     "jay z", "lil wayne", "kanye west",
     "nas", "dmx", "50 cent", "snoop dogg",
-    "drake", "kendrick lamar"
+    "drake", "kendrick lamar", "nicki minaj",
+    "missy elliott", "lauryn hill", "queen latifah", "post malone"
   ], countries: ["US"] },
 
   "70s": {
-    termsEN: ["70s rock classics", "70s pop hits", "led zeppelin", "fleetwood mac", "the eagles", "elton john 70s", "david bowie 70s", "bee gees", "abba", "queen 70s", "stevie wonder 70s", "al green 70s"],
-    termsES: ["pop latino 70s", "rock en español 70s", "jose jose 70s", "juan gabriel 70s", "camilo sesto", "roberto carlos 70s", "raphael 70s", "jose luis rodriguez", "pedro infante", "javier solis"],
+    termsEN: [
+      "fleetwood mac", "the eagles", "elton john 70s", "david bowie 70s",
+      "bee gees", "abba", "queen 70s", "stevie wonder 70s",
+      "donna summer", "earth wind fire", "cat stevens",
+      "billy joel 70s", "hall and oates 70s", "carole king", "al green 70s"
+    ],
+    termsES: [
+      "jose jose 70s", "juan gabriel 70s", "camilo sesto",
+      "roberto carlos 70s", "raphael 70s", "jose luis rodriguez",
+      "rocio durcal 70s", "jose feliciano 70s", "pimpinela"
+    ],
     countries: ["US","MX"]
   },
 
   "80s": {
-    termsEN: ["80s pop hits", "80s rock classics", "michael jackson thriller", "prince purple rain", "madonna 80s", "bon jovi 80s", "cyndi lauper", "duran duran", "whitney houston 80s"],
-    termsES: ["pop latino 80s", "rock en español 80s", "los enanitos verdes 80s", "flans 80s", "timbiriche 80s", "pandora 80s", "daniela romo", "yuri 80s"],
+    termsEN: [
+      "michael jackson thriller", "prince purple rain", "madonna 80s",
+      "bon jovi 80s", "cyndi lauper", "duran duran",
+      "whitney houston 80s", "tina turner 80s", "bruce springsteen 80s",
+      "u2 80s", "george michael 80s", "culture club",
+      "a-ha", "phil collins 80s", "hall and oates 80s"
+    ],
+    termsES: [
+      "mecano", "flans", "timbiriche", "pandora",
+      "daniela romo", "yuri 80s", "alaska y dinarama",
+      "virus argentina", "los enanitos verdes 80s", "soda stereo 80s"
+    ],
     countries: ["US","MX"]
   },
 
   "90s": {
-    termsEN: ["90s pop hits", "90s rock hits", "backstreet boys", "tlc", "no doubt", "spice girls", "nsync", "destiny's child"],
-    termsES: ["pop latino 90s", "rock en español 90s", "mana 90s", "jaguares 90s", "fobia 90s", "cafe tacuba 90s", "maldita vecindad", "la mosca tse tse"],
+    termsEN: [
+      "backstreet boys", "tlc", "no doubt", "spice girls", "nsync",
+      "destiny's child", "alanis morissette", "britney spears",
+      "salt n pepa", "ace of base", "shania twain 90s",
+      "mariah carey 90s", "boyz ii men 90s", "will smith 90s"
+    ],
+    termsES: [
+      "mana 90s", "cafe tacuba 90s", "maldita vecindad",
+      "selena quintanilla", "ricky martin 90s",
+      "alejandro sanz 90s", "los del rio", "fobia 90s",
+      "la mosca tse tse", "illya kuryaki"
+    ],
     countries: ["US","MX"]
   },
 
   "2010s": { terms: [
-    "2010s pop hits", "2010s hits playlist",
     "bruno mars 2010s", "adele 2010s", "ed sheeran 2010s",
-    "taylor swift 2010s", "rihanna 2010s", "katy perry"
+    "taylor swift 2010s", "rihanna 2010s", "katy perry 2010s",
+    "justin bieber 2010s", "one direction", "carly rae jepsen",
+    "pharrell williams", "sam smith", "meghan trainor",
+    "shawn mendes", "lizzo", "post malone 2010s"
   ], countries: ["US"] },
 
   "Throwbacks": { terms: [
-    "classic oldies hits", "70s hits",
-    "motown classics", "disco hits 70s"
+    "frank sinatra", "nat king cole", "elvis presley",
+    "ray charles", "sam cooke", "chuck berry",
+    "the temptations", "the supremes", "smokey robinson",
+    "buddy holly", "bobby darin", "fats domino",
+    "little richard", "the four tops", "the everly brothers"
   ], countries: ["US"] },
+
+  "Latin Pop": { terms: [
+    "ricky martin", "shakira", "enrique iglesias",
+    "gloria estefan", "marc anthony", "jennifer lopez",
+    "alejandro sanz", "juanes", "thalia",
+    "ana gabriel", "cristian castro", "paulina rubio",
+    "sin bandera", "reik", "camila latin pop"
+  ], countries: ["US","MX"] },
+
+  "Banda & Norteño": { terms: [
+    "los bukis", "bronco banda", "banda ms",
+    "pepe aguilar", "vicente fernandez", "intocable",
+    "los yonics", "ramon ayala", "joan sebastian",
+    "conjunto primavera", "los tigres del norte", "lupillo rivera"
+  ], countries: ["MX","US"] },
 
   "Salsa": { terms: [
     "marc anthony salsa", "celia cruz salsa",
     "gilberto santa rosa", "willie colon salsa",
     "hector lavoe", "ruben blades",
     "tito puente", "oscar d'leon", "eddie santiago",
-    "el gran combo", "frankie ruiz", "victor manuelle"
-  ], countries: ["MX"] },
+    "el gran combo", "frankie ruiz", "victor manuelle",
+    "la india salsa", "ismael rivera", "cheo feliciano",
+    "johnny pacheco", "andy montanez"
+  ], countries: ["US","MX"] },
 
   "Merengue": { terms: [
     "juan luis guerra merengue", "wilfrido vargas",
     "johnny ventura merengue", "sergio vargas merengue",
     "los hermanos rosario", "toño rosario",
-    "fernando villalona", "eddy herrera", "milly quezada", "bonny cepeda"
-  ], countries: ["MX"] },
+    "fernando villalona", "eddy herrera",
+    "milly quezada", "bonny cepeda", "olga tanon merengue",
+    "kinito mendez"
+  ], countries: ["MX","US"] },
 
   "Boleros": { terms: [
     "jose jose boleros", "armando manzanero",
-    "agustin lara boleros", "pedro infante boleros",
-    "julio jaramillo", "segundo rosero",
-    "luis miguel boleros", "chavela vargas",
-    "pedro vargas", "lucho gatica"
-  ], countries: ["MX"] },
+    "agustin lara boleros", "luis miguel boleros",
+    "chavela vargas", "pedro vargas", "lucho gatica",
+    "trio los panchos", "ibrahim ferrer",
+    "bobby capo", "raphael boleros", "marco antonio solis boleros"
+  ], countries: ["MX","US"] },
 
   "Reggaeton": { terms: [
     "daddy yankee", "don omar", "tego calderon",
     "wisin yandel", "j balvin", "bad bunny",
-    "nicky jam", "plan b reggaeton", "arcangel reggaeton",
-    "zion y lennox", "yandel", "farruko"
-  ], countries: ["MX"] }
+    "nicky jam", "plan b reggaeton",
+    "zion y lennox", "yandel", "farruko",
+    "ivy queen", "ozuna", "maluma", "karol g",
+    "alexis y fido"
+  ], countries: ["MX","US"] }
 };
 
 // Artists whose songs should be exempt from flooding penalty (legends)
 const LEGEND_ARTISTS = new Set([
-  'michael jackson','whitney houston','mariah carey','madonna','prince','beyoncé','beyonce',
+  // Pop
+  'michael jackson','whitney houston','mariah carey','madonna','beyoncé','beyonce',
   'bruno mars','adele','taylor swift','ed sheeran','rihanna','katy perry',
+  'lionel richie','celine dion','elton john','lady gaga','ariana grande',
+  'justin timberlake','dua lipa','shakira','selena gomez',
+  // Rock EN
   'bon jovi','guns n roses','led zeppelin','queen','aerosmith','the rolling stones',
-  'van halen','journey','def leppard','pink floyd',
+  'van halen','journey','def leppard','pink floyd','the police','u2','a-ha',
+  'george michael','phil collins',
+  // Rock ES
   'mana','soda stereo','cafe tacuba','los fabulosos cadillacs','hombres g','enanitos verdes',
-  'heroes del silencio','jaguares','molotov','caifanes','el tri','fobia','la ley','bunbury',
+  'heroes del silencio','jaguares','molotov','caifanes','el tri','fobia','la ley','bunbury','mecano',
+  // R&B
   'aretha franklin','stevie wonder','al green','marvin gaye','usher','alicia keys',
-  'boyz ii men','tlc','en vogue',"d'angelo",
+  'boyz ii men','tlc','en vogue','mary j blige','janet jackson','ne-yo',
+  'monica','john legend','maxwell',
+  // Country
   'johnny cash','dolly parton','kenny rogers','garth brooks','shania twain','willie nelson',
-  'george strait','reba mcentire','carrie underwood',
+  'george strait','reba mcentire','carrie underwood','tim mcgraw','faith hill',
+  'brad paisley','blake shelton','luke bryan','miranda lambert',
+  // Hip-Hop
   'notorious b.i.g.','2pac','tupac','eminem','jay-z','lil wayne','kanye west',
   'nas','dmx','50 cent','snoop dogg','drake','kendrick lamar',
+  'nicki minaj','missy elliott','lauryn hill','queen latifah','post malone',
+  // 80s extra
+  'cyndi lauper','duran duran','tina turner','bruce springsteen',
+  'culture club','hall and oates',
+  // 80s ES
+  'flans','timbiriche','pandora','daniela romo','yuri','alaska','virus',
+  // 90s EN
   'backstreet boys','no doubt','spice girls','nsync',"destiny's child",
-  'cyndi lauper','duran duran',
-  'flans','timbiriche','pandora','daniela romo','yuri',
-  'maldita vecindad','la mosca tse tse',
-  'marc anthony','celia cruz','gilberto santa rosa','willie colon','hector lavoe','ruben blades',
+  'alanis morissette','britney spears','ace of base',
+  // 90s ES
+  'maldita vecindad','la mosca tse tse','selena quintanilla',
+  'ricky martin','alejandro sanz','illya kuryaki',
+  // 70s
+  'fleetwood mac','the eagles','david bowie','bee gees','abba',
+  'donna summer','earth wind fire','cat stevens','billy joel',
+  'carole king','camilo sesto','roberto carlos','raphael','jose luis rodriguez','rocio durcal',
+  // Throwbacks
+  'frank sinatra','nat king cole','elvis presley','ray charles','sam cooke',
+  'chuck berry','the temptations','the supremes','smokey robinson',
+  'buddy holly','bobby darin','fats domino','little richard','the four tops',
+  // Latin Pop
+  'enrique iglesias','gloria estefan','marc anthony','jennifer lopez',
+  'juanes','thalia','ana gabriel','cristian castro','paulina rubio',
+  'sin bandera','reik','camila',
+  // Banda & Norteño
+  'los bukis','bronco','banda ms','pepe aguilar','vicente fernandez',
+  'intocable','los yonics','ramon ayala','joan sebastian',
+  'conjunto primavera','los tigres del norte','lupillo rivera',
+  // Salsa
+  'celia cruz','gilberto santa rosa','willie colon','hector lavoe','ruben blades',
   'tito puente',"oscar d'leon",'eddie santiago','el gran combo','frankie ruiz','victor manuelle',
+  'la india','ismael rivera','cheo feliciano','johnny pacheco','andy montanez',
+  // Merengue
   'juan luis guerra','wilfrido vargas','johnny ventura','sergio vargas',
-  'fernando villalona','eddy herrera','milly quezada','bonny cepeda',
-  'jose jose','armando manzanero','agustin lara','pedro infante',
-  'julio jaramillo','segundo rosero','luis miguel','chavela vargas','pedro vargas','lucho gatica',
+  'fernando villalona','eddy herrera','milly quezada','bonny cepeda','olga tanon','kinito mendez',
+  // Boleros
+  'jose jose','armando manzanero','agustin lara','luis miguel','chavela vargas',
+  'pedro vargas','lucho gatica','trio los panchos','ibrahim ferrer','bobby capo',
+  'marco antonio solis',
+  // Reggaeton
   'daddy yankee','don omar','tego calderon','j balvin','bad bunny','nicky jam',
-  'zion y lennox','yandel','farruko',
+  'zion y lennox','yandel','farruko','ivy queen','ozuna','maluma','karol g','alexis y fido',
 ]);
 
 const ERA_RANGES = {
@@ -1852,14 +2196,16 @@ function initGenreGrid(lang) {
     '80s':            'Synths, hair metal, new wave',
     '90s':            'Grunge, pop, alternative, boy bands',
     '2010s':          'Indie pop, EDM era, recent hits',
-    'Throwbacks':     'Oldies, Motown, classic soul',
+    'Throwbacks':     'Oldies, Sinatra, Elvis, Motown',
+    'Latin Pop':      'Shakira, Ricky Martin, Enrique, Gloria',
+    'Banda & Norteño':'Los Bukis, Bronco, Vicente, Banda MS',
     'Salsa':          'Cali, NY, tropical classics',
     'Merengue':       'Dominican dance floor hits',
     'Boleros':        'Romantic ballads, Latin standards',
     'Reggaeton':      'Perreo, urbano, Latin trap',
   };
 
-  const BILINGUAL_GENRES = new Set(['Rock', '70s', '80s', '90s']);
+  const BILINGUAL_GENRES = new Set(['Rock', '70s', '80s', '90s', 'Latin Pop', 'Banda & Norteño']);
 
   const allGenres = [...GENRES.EN, ...GENRES.ES];
   const grid = document.getElementById('genre-grid');
@@ -2246,14 +2592,17 @@ function scoreTrack(track, genre, artistCounts) {
 
   // Kill tracks whose title IS the genre name (e.g. "Merengue Dominicano", "Salsa Romántica", "Bolero")
   const genreKillTitles = {
-    'Merengue': ['merengue dominicano','merengue tropical','merengue bailable','merengue clasico','merengue clásico'],
-    'Salsa':    ['salsa romantica','salsa romántica','salsa clasica','salsa clásica','salsa tropical'],
-    'Boleros':  ['boleros romanticos','boleros románticos','bolero y habaneras','bolero sangriento'],
-    'R&B':      ['r&b'],
-    '80s':      ["80's",'80s','80s pop','80s rock','80s hits'],
-    '90s':      ["90's",'90s','90s pop','90s rock','90s hits'],
-    '70s':      ["70's",'70s','70s pop','70s rock','70s hits','70s classics'],
-    'Rock':     ['rock','rock hits','rock classics'],
+    'Merengue':       ['merengue dominicano','merengue tropical','merengue bailable','merengue clasico','merengue clásico'],
+    'Salsa':          ['salsa romantica','salsa romántica','salsa clasica','salsa clásica','salsa tropical'],
+    'Boleros':        ['boleros romanticos','boleros románticos','bolero y habaneras','bolero sangriento'],
+    'R&B':            ['r&b'],
+    '80s':            ["80's",'80s','80s pop','80s rock','80s hits'],
+    '90s':            ["90's",'90s','90s pop','90s rock','90s hits'],
+    '70s':            ["70's",'70s','70s pop','70s rock','70s hits','70s classics'],
+    'Rock':           ['rock','rock hits','rock classics'],
+    'Latin Pop':      ['latin pop','latin hits','pop latino','exitos latinos'],
+    'Banda & Norteño':['banda','norteño','norteno','grupero','musica grupera'],
+    'Throwbacks':     ['oldies','classic hits','golden oldies','oldies but goodies'],
   };
   if (genreKillTitles[genre]?.some(t => title === t || title.startsWith(t + ' (') || title.startsWith(t + ':') )) score -= 200;
 
@@ -2411,15 +2760,13 @@ async function fetchAndScore(genre) {
   });
 
   const scored = allTracks
-    .map(t => ({ ...t, _score: scoreTrack(t, genre, artistCounts) }))
-    .filter(t => t._score > -50);
+    .map(t => ({ ...t, _score: scoreTrack(t, genre, artistCounts) }));
 
-  // Split into classic (positions 0-4 per artist = well-known hits)
-  // and wow (positions 5+ = deeper cuts) based on result position
-  // Classic: high score AND early result position
-  // Wow: decent score but later in results (deeper cut)
-  const classicRaw = scored.filter(t => t._resultPos <= 4);
-  const wowRaw = scored.filter(t => t._resultPos > 4);
+  const killedCount = scored.filter(t => t._score <= -50).length;
+  const survived = scored.filter(t => t._score > -50);
+
+  const classicRaw = survived.filter(t => t._resultPos <= 4);
+  const wowRaw = survived.filter(t => t._resultPos > 4).map(t => ({ ...t, _deepCut: true }));
 
   // Shuffle within score tiers for variety
   const sortAndShuffle = (pool) => {
@@ -2447,12 +2794,16 @@ async function fetchAndScore(genre) {
 
   return {
     classicPool: capArtists(sortAndShuffle(classicRaw)),
-    wowPool: capArtists(sortAndShuffle(wowRaw))
+    wowPool: capArtists(sortAndShuffle(wowRaw)),
+    killedCount
   };
 }
 
 // ── RENDER ROUND ──
 function renderRound() {
+  if (_rendering) return;
+  _rendering = true;
+  try {
   const round = G.rounds[G.currentRound - 1];
   if (!round) return;
 
@@ -2608,13 +2959,16 @@ function renderRound() {
       ${!moreAvailable ? 'No more songs' : '↓ Show more options'}
     </button>
   `;
+  } finally {
+    _rendering = false;
+  }
 }
 
 function showLoading(genre) {
   const genreEmojis = {
     'Pop': '🎵', 'Rock': '🎸', 'R&B': '🎙️', 'Disney Classics': '✨',
     'Country': '🤠', 'Hip-Hop/Rap': '🎤', '70s': '🕺', '80s': '📼', '90s': '💿',
-    '2010s': '📱', 'Throwbacks': '🕰️', 'Salsa': '💃', 'Merengue': '🥁',
+    '2010s': '📱', 'Throwbacks': '🕰️', 'Latin Pop': '🌟', 'Banda & Norteño': '🎺', 'Salsa': '💃', 'Merengue': '🥁',
     'Boleros': '🌹', 'Reggaeton': '🔥'
   };
   const emoji = genre ? (genreEmojis[genre] || '🎵') : '🎵';
@@ -2638,6 +2992,7 @@ window.switchActivePlayer = (name) => {
 };
 
 let _pickLock = false;
+let _rendering = false;
 window.pickSong = async (idx) => {
   if (_pickLock) return;
   _pickLock = true;
@@ -3146,7 +3501,7 @@ function getCachedPools(roundIdx) {
 async function saveState() {
   if (!_gameRef) return;
   try {
-    _lastSavedAt = Date.now();
+    _lastSavedAt = Date.now(); // set BEFORE await so echo is suppressed when it arrives
     const slim = serializeForFirestore(G);
     await setDoc(_gameRef, { state: JSON.stringify(slim), updatedAt: _lastSavedAt });
   } catch(e) { console.warn('Save failed', e); }
