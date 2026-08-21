@@ -53,6 +53,10 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    cursor: pointer;
   }
 
   .header-meta { font-size: 0.78rem; color: var(--muted); text-align: right; line-height: 1.4; }
@@ -1363,11 +1367,12 @@
   <div class="app-header">
     <div class="logo"
       onclick="window._activateDevPanel()"
-      onmousedown="window._startLogoHold()"
+      onmousedown="window._startLogoHold(event)"
       onmouseup="window._cancelLogoHold()"
       onmouseleave="window._cancelLogoHold()"
-      ontouchstart="window._startLogoHold()"
+      ontouchstart="window._startLogoHold(event)"
       ontouchend="window._cancelLogoHold()"
+      ontouchmove="window._cancelLogoHold()"
       ontouchcancel="window._cancelLogoHold()"
     >🎤 Karaoke Knight</div>
     <div style="display:flex;align-items:center;gap:0.6rem;">
@@ -1601,8 +1606,9 @@ async function addToGroupHistory(groupId, genre, trackIds) {
 
 // ── LOGO LONG-PRESS → GENRE TESTER ──
 let _logoHoldTimer = null;
-window._startLogoHold = () => {
-  _logoHoldTimer = setTimeout(() => { _logoHoldTimer = null; openGenreTester(); }, 7000);
+window._startLogoHold = (e) => {
+  e.preventDefault(); // prevent text selection and context menu
+  _logoHoldTimer = setTimeout(() => { _logoHoldTimer = null; openGenreTester(); }, 3000);
 };
 window._cancelLogoHold = () => {
   if (_logoHoldTimer) { clearTimeout(_logoHoldTimer); _logoHoldTimer = null; }
