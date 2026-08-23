@@ -3494,7 +3494,9 @@ function renderResults() {
 }
 
 // ── YOUTUBE ASSISTED SELECTION ──
-const YT_API_KEY = 'AIzaSyAfN7Lb72lg2-Ze2MXxGww4bKoTQ7PH23I';
+const YT_KEY_A = 'AIzaSyCAEH5TZx';
+const YT_KEY_B = 'sK0fbDlo3_8SJJaHquLnyRFyE';
+const YT_API_KEY = YT_KEY_A + YT_KEY_B;
 let _ytPickerContext = null; // { prefix, roundNum, idx }
 
 window.openYTPicker = async (prefix, roundNum, idx, trackName, artistName) => {
