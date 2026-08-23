@@ -1221,7 +1221,46 @@
 
   .queue-count-label { font-size: 0.7rem; color: var(--muted); text-align: center; margin-bottom: 1rem; }
 
-  /* ── GENRE TESTER ── */
+  /* ── YOUTUBE VIDEO PICKER ── */
+  .yt-picker-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+    z-index: 500; display: flex; flex-direction: column;
+    padding: 1.25rem 1rem 2rem;
+  }
+  .yt-picker-overlay.hidden { display: none; }
+  .yt-picker-header {
+    font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800;
+    color: var(--text); margin-bottom: 0.25rem;
+  }
+  .yt-picker-sub { font-size: 0.72rem; color: var(--muted); margin-bottom: 1rem; }
+  .yt-picker-results { flex: 1; overflow-y: auto; }
+  .yt-result-card {
+    display: flex; gap: 0.75rem; align-items: center;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.65rem; margin-bottom: 0.5rem;
+    cursor: pointer; transition: border-color 0.15s;
+  }
+  .yt-result-card:active { border-color: var(--accent); }
+  .yt-result-thumb {
+    width: 80px; height: 45px; border-radius: 6px;
+    object-fit: cover; flex-shrink: 0; background: var(--surface2);
+  }
+  .yt-result-info { flex: 1; min-width: 0; }
+  .yt-result-title {
+    font-size: 0.82rem; font-weight: 600;
+    display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3;
+  }
+  .yt-result-channel { font-size: 0.68rem; color: var(--muted); margin-top: 0.2rem; }
+  .yt-picker-close {
+    margin-top: 0.75rem; width: 100%; padding: 0.7rem;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 10px; font-size: 0.85rem;
+    font-weight: 600; cursor: pointer;
+  }
+  .yt-searching {
+    text-align: center; padding: 2rem; color: var(--muted); font-size: 0.85rem;
+  }
   .tester-song {
     display: flex; align-items: flex-start; gap: 0.6rem;
     padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.78rem;
@@ -1264,6 +1303,16 @@
 </style>
 </head>
 <body>
+
+<!-- ══ YOUTUBE VIDEO PICKER ══ -->
+<div class="yt-picker-overlay hidden" id="yt-picker">
+  <div class="yt-picker-header" id="yt-picker-title">Pick a karaoke video</div>
+  <div class="yt-picker-sub" id="yt-picker-sub">Tap to select</div>
+  <div class="yt-picker-results" id="yt-picker-results">
+    <div class="yt-searching">Searching YouTube…</div>
+  </div>
+  <button class="yt-picker-close" onclick="closeYTPicker()">✕ Cancel</button>
+</div>
 
 <!-- ══ HANDOFF OVERLAY ══ -->
 <div class="handoff-overlay hidden" id="handoff-overlay" onclick="dismissHandoff()">
@@ -1537,7 +1586,6 @@ const GENRE_HISTORY_CAPS = {
   'Pop': 150, 'Rock': 140, 'R&B': 120, 'Disney Classics': 60,
   'Country': 110, 'Hip-Hop/Rap': 150, '70s': 140, '80s': 140, '90s': 140,
   '2010s': 130, 'Throwbacks': 100, 'Latin Pop': 120, 'Banda & Norteño': 100,
-  '2010s': 100, 'Throwbacks': 70,
   'Salsa': 100, 'Merengue': 80, 'Boleros': 90, 'Reggaeton': 100,
 };
 const PICKED_HISTORY_RATIO = 0.25; // picked bucket is ~25% the size of the shown cap, but stickier
@@ -2283,6 +2331,7 @@ window.startGame = async () => {
   G.hostToken = _deviceToken; // only this device can advance rounds
   saveHostToken(id, _deviceToken); // persist so rejoin works after tab close
 
+  _lastSavedAt = 0; // reset so new game's first snapshot isn't suppressed as echo
   await saveState();
   _myPlayer = players[0]; // host plays as first player by default
   showScreen('game');
@@ -2341,7 +2390,7 @@ window.joinGame = async () => {
 
     const list = document.getElementById('join-player-list');
     list.innerHTML = G.players.map(p => `
-      <div class="join-player-card" onclick="joinAsPlayer('${esc(p)}')">
+      <div class="join-player-card" data-player="${esc(p)}" onclick="joinAsPlayer(this.dataset.player)">
         <div class="join-player-name">${esc(p)}</div>
         <div class="join-player-arrow">→</div>
       </div>`).join('');
@@ -2357,8 +2406,9 @@ window.joinGame = async () => {
 window.joinAsPlayer = async (name) => {
   _myPlayer = name;
   G.activePlayer = name;
-  G.gameStatus = G.gameStatus === 'complete' ? 'complete' : 'playing';
-  await saveState(); // now safe to save — player is set, screen routing is correct
+  // Don't overwrite 'recap' or 'complete' — those are still valid states from the host
+  if (G.gameStatus !== 'complete' && G.gameStatus !== 'recap') G.gameStatus = 'playing';
+  await saveState();
   if (G.gameStatus === 'complete') {
     showResults();
   } else if (G.gameStatus === 'recap') {
@@ -2741,9 +2791,17 @@ async function fetchAndScore(genre) {
 
   const combos = [];
   for (const country of countries) {
-    for (const term of terms) combos.push(fetchTerm(term, country));
+    for (const term of terms) combos.push([term, country]);
   }
-  const results = await Promise.all(combos);
+
+  // Batch into groups of 10 to avoid iTunes rate limiting
+  const batchSize = 10;
+  const results = [];
+  for (let i = 0; i < combos.length; i += batchSize) {
+    const batch = combos.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(([term, country]) => fetchTerm(term, country)));
+    results.push(...batchResults);
+  }
 
   // Merge, deduplicate, apply blocklists
   const seen = new Set();
@@ -2811,7 +2869,7 @@ function renderRound() {
   _rendering = true;
   try {
   const round = G.rounds[G.currentRound - 1];
-  if (!round) return;
+  if (!round) { _rendering = false; return; }
 
   const isHost = !G.hostToken || G.hostToken === effectiveToken(_gameId);
   const me = _myPlayer || G.players[0];
@@ -3050,7 +3108,7 @@ window.unskipRound = async () => {
   const round = G.rounds[G.currentRound - 1];
   if (round.skips?.[me]) delete round.skips[me];
   await saveState();
-  renderRound();
+  renderRound(); // renderRound resets button styles naturally
 };
 
 window.showMore = async () => {
@@ -3094,25 +3152,34 @@ window.showMore = async () => {
 window.togglePreview = (idx) => {
   const audio = document.getElementById('audio-player');
   const round = G.rounds[G.currentRound - 1];
-  const song = round.shown[idx];
+  const song = round?.shown[idx];
+  if (!song) return;
 
   if (_previewingIdx === idx) {
     if (audio.paused) { audio.play(); }
     else { audio.pause(); _previewingIdx = null; }
-    renderRound();
-    return;
+  } else {
+    _previewingIdx = idx;
+    audio.src = song.previewUrl;
+    audio.play();
   }
-
-  _previewingIdx = idx;
-  audio.src = song.previewUrl;
-  audio.play();
-  renderRound();
+  // Only update preview button states, not full re-render
+  updatePreviewButtons();
 };
 
 window.onAudioEnded = () => {
   _previewingIdx = null;
-  renderRound();
+  updatePreviewButtons();
 };
+
+function updatePreviewButtons() {
+  document.querySelectorAll('.preview-btn').forEach((btn, i) => {
+    const isPlaying = i === _previewingIdx;
+    const audio = document.getElementById('audio-player');
+    btn.textContent = isPlaying && !audio.paused ? '⏸' : '▶';
+    btn.style.borderColor = isPlaying ? 'var(--accent)' : '';
+  });
+}
 
 function stopPreview() {
   const audio = document.getElementById('audio-player');
@@ -3128,14 +3195,24 @@ function checkAllPlayersDone() {
   if (!round) return;
   const allDone = G.players.every(p => round.picks[p] || round.skips?.[p]);
   if (allDone) {
-    // Remove any existing banner first
+    // Remove any existing banner
     document.getElementById('all-done-banner')?.remove();
     const banner = document.createElement('div');
     banner.id = 'all-done-banner';
     banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-weight:700;font-size:0.85rem;padding:0.6rem 1.2rem;border-radius:20px;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,0.4);pointer-events:none;';
-    banner.textContent = '✅ Everyone\'s in — tap Next Round!';
+    banner.textContent = '✅ Everyone\'s in!';
     document.body.appendChild(banner);
-    setTimeout(() => banner.remove(), 5000);
+    setTimeout(() => banner.remove(), 4000);
+
+    // Also update the Next Round button persistently
+    const nextBtn = document.getElementById('next-btn');
+    if (nextBtn && !nextBtn.disabled) {
+      const isLast = G.currentRound >= G.totalRounds;
+      nextBtn.textContent = isLast ? '🏁 All in — See Results!' : '✅ All in — Next Round!';
+      nextBtn.style.background = 'linear-gradient(90deg, #4cff91, #00c9a7)';
+      nextBtn.style.color = '#0d0d14';
+      nextBtn.style.fontWeight = '800';
+    }
   }
 }
 
@@ -3194,7 +3271,7 @@ function showRoundRecap(roundHistory, onContinue) {
       .map(p => ({
         trackName: p.song.trackName,
         artistName: p.song.artistName,
-        artworkUrl: p.song.artworkUrl60 || '',
+        artworkUrl: p.song.artworkUrl100 || '',
         player: p.player,
         videoId: null,
         skipped: false
@@ -3240,16 +3317,23 @@ function showRoundRecap(roundHistory, onContinue) {
   // Update bottom bar for recap state
   const nextBtn = document.getElementById('next-btn');
   const skipBtn = document.getElementById('skip-btn');
-  nextBtn.disabled = false;
-  nextBtn.textContent = 'Next Genre →';
+  const isHost = !G.hostToken || G.hostToken === effectiveToken(_gameId);
+
   skipBtn.style.display = 'none';
 
-  // Wire Next Genre button to continue
-  nextBtn.onclick = async () => {
-    nextBtn.onclick = () => nextRound(); // restore default
-    skipBtn.style.display = '';
-    await onContinue();
-  };
+  if (isHost) {
+    nextBtn.disabled = false;
+    nextBtn.textContent = 'Next Genre →';
+    nextBtn.onclick = async () => {
+      nextBtn.onclick = () => nextRound(); // restore default
+      skipBtn.style.display = '';
+      await onContinue();
+    };
+  } else {
+    nextBtn.disabled = true;
+    nextBtn.textContent = 'Waiting for host…';
+    nextBtn.onclick = null;
+  }
 }
 
 window.skipGenre = async () => {
@@ -3277,7 +3361,7 @@ function showResults() {
         .map(p => ({
           trackName: p.song.trackName,
           artistName: p.song.artistName,
-          artworkUrl: p.song.artworkUrl60 || '',
+          artworkUrl: p.song.artworkUrl100 || '',
           player: p.player,
           videoId: null,
           skipped: false
@@ -3316,7 +3400,10 @@ function renderQueueSection(roundNum, genre, items, context) {
     } else {
       statusHtml = `
         <div class="queue-actions">
-          <a class="queue-search-btn" href="${searchUrl}" target="_blank" rel="noopener">🔍 Find on YouTube</a>
+          <button class="queue-search-btn" 
+            data-prefix="${esc(prefix)}" data-round="${roundNum}" data-idx="${i}"
+            data-track="${esc(q.trackName)}" data-artist="${esc(q.artistName)}"
+            onclick="openYTPicker(this.dataset.prefix,+this.dataset.round,+this.dataset.idx,this.dataset.track,this.dataset.artist)">🎬 Pick karaoke video</button>
           <button class="queue-paste-btn" onclick="queueShowPaste('${prefix}',${i})">📋 Paste link</button>
           <button class="queue-skip-btn" onclick="queueSkip('${prefix}',${roundNum},${i})">Skip</button>
         </div>
@@ -3345,7 +3432,7 @@ function renderQueueSection(roundNum, genre, items, context) {
   return `
     <div class="queue-section" id="queue-section-${prefix}">
       <div class="queue-header">🎤 Round ${roundNum} Queue — ${esc(genre)}</div>
-      <div class="queue-sub">${linkedCount} of ${totalCount} linked · Tap <strong>🔍 Find on YouTube</strong>, pick a karaoke video, copy its URL, then come back and tap <strong>📋 Paste link</strong>.</div>
+      <div class="queue-sub">${linkedCount} of ${totalCount} linked · Tap <strong>🎬 Pick karaoke video</strong> to choose from YouTube results in-app.</div>
       ${cards}
       ${roundQueueUrl
         ? `<a class="open-queue-btn" href="${roundQueueUrl}" target="_blank" rel="noopener">▶ Open Round ${roundNum} in YouTube</a>`
@@ -3406,10 +3493,84 @@ function renderResults() {
     ${summaryHtml}`;
 }
 
-// Queue interaction handlers
+// ── YOUTUBE ASSISTED SELECTION ──
+const YT_API_KEY = 'AIzaSyAfN7Lb72lg2-Ze2MXxGww4bKoTQ7PH23I';
+let _ytPickerContext = null; // { prefix, roundNum, idx }
+
+window.openYTPicker = async (prefix, roundNum, idx, trackName, artistName) => {
+  _ytPickerContext = { prefix, roundNum, idx, _trackName: trackName, _artistName: artistName };
+  const picker = document.getElementById('yt-picker');
+  const results = document.getElementById('yt-picker-results');
+  document.getElementById('yt-picker-title').textContent = trackName;
+  document.getElementById('yt-picker-sub').textContent = `${artistName} · tap a video to select it`;
+  results.innerHTML = '<div class="yt-searching"><div class="spinner"></div><br/>Searching YouTube…</div>';
+  picker.classList.remove('hidden');
+
+  const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${trackName} ${artistName} karaoke`)}`;
+  const fallbackHtml = `
+    <a class="queue-search-btn" href="${searchUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-bottom:0.75rem">🔍 Search YouTube manually</a>
+    <button class="queue-paste-btn" style="margin:0 auto;display:block" onclick="closeYTPicker();queueShowPaste('${prefix}',${idx})">📋 Then paste link here</button>`;
+
+  try {
+    const query = encodeURIComponent(`${trackName} ${artistName} karaoke`);
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&maxResults=8&key=${YT_API_KEY}`;
+    const data = await fetch(url).then(r => r.json());
+
+    // Filter to only video results with a valid videoId
+    const videoItems = (data.items || []).filter(item => item.id?.videoId);
+
+    if (!videoItems.length) {
+      results.innerHTML = `<div class="yt-searching">No results found.<br/><br/>${fallbackHtml}</div>`;
+      return;
+    }
+
+    results.innerHTML = videoItems.slice(0, 5).map(item => {
+      const vid = item.id.videoId;
+      // Use textContent assignment to avoid double-encoding YouTube's HTML entities
+      const titleText = item.snippet.title.replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+      const channelText = item.snippet.channelTitle;
+      const thumb = item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '';
+      return `
+        <div class="yt-result-card" onclick="selectYTVideo('${vid}')">
+          <img class="yt-result-thumb" src="${thumb}" alt="" loading="lazy" />
+          <div class="yt-result-info">
+            <div class="yt-result-title">${esc(titleText)}</div>
+            <div class="yt-result-channel">${esc(channelText)}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+  } catch(e) {
+    console.error('[KK] YouTube search failed:', e);
+    results.innerHTML = `<div class="yt-searching">Search failed — check your connection.<br/><br/>${fallbackHtml}</div>`;
+  }
+};
+
+window.selectYTVideo = async (videoId) => {
+  if (!_ytPickerContext) return;
+  const { prefix, roundNum, idx } = _ytPickerContext; // destructure before closing
+  closeYTPicker();
+  if (!G.karaokeQueue?.[roundNum]?.[idx]) return;
+  G.karaokeQueue[roundNum][idx].videoId = videoId;
+  G.karaokeQueue[roundNum][idx].skipped = false;
+  await saveState();
+  prefix.startsWith('recap') ? renderRecapQueue(roundNum) : renderResults();
+  showToast('Video linked! ✅');
+};
+
+window.closeYTPicker = () => {
+  document.getElementById('yt-picker').classList.add('hidden');
+  _ytPickerContext = null;
+};
+
+// ── QUEUE INTERACTION HANDLERS ──
 window.queueShowPaste = (prefix, i) => {
   const row = document.getElementById(`queue-paste-row-${prefix}-${i}`);
-  if (row) { row.style.display = 'block'; document.getElementById(`queue-paste-input-${prefix}-${i}`)?.focus(); }
+  const input = document.getElementById(`queue-paste-input-${prefix}-${i}`);
+  if (row) {
+    row.style.display = 'block';
+    if (input) { input.value = ''; input.focus(); }
+  }
 };
 
 window.queueSaveLink = async (prefix, roundNum, i, url) => {
@@ -3417,7 +3578,7 @@ window.queueSaveLink = async (prefix, roundNum, i, url) => {
   const videoId = extractYouTubeId(url.trim());
   if (!videoId) { showToast('Couldn\'t read that URL — copy directly from YouTube'); return; }
   if (!G.karaokeQueue) G.karaokeQueue = {};
-  if (!G.karaokeQueue[roundNum]) return;
+  if (!G.karaokeQueue[roundNum]?.[i]) return; // bounds check
   G.karaokeQueue[roundNum][i].videoId = videoId;
   G.karaokeQueue[roundNum][i].skipped = false;
   await saveState();
