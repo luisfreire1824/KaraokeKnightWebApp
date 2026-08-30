@@ -1583,10 +1583,10 @@ const flagsCol = collection(db, "karaoke-knight-flags");
 // Cap scales per genre based on realistic pool size — bigger genres can remember more
 // without starving the pool, smaller genres need a tighter cap.
 const GENRE_HISTORY_CAPS = {
-  'Pop': 150, 'Rock': 140, 'R&B': 120, 'Disney Classics': 60,
-  'Country': 110, 'Hip-Hop/Rap': 150, '70s': 140, '80s': 140, '90s': 140,
-  '2010s': 130, 'Throwbacks': 100, 'Latin Pop': 120, 'Banda & Norteño': 100,
-  'Salsa': 100, 'Merengue': 80, 'Boleros': 90, 'Reggaeton': 100,
+  'Pop': 200, 'Rock': 180, 'R&B': 160, 'Disney Classics': 80,
+  'Country': 160, 'Hip-Hop/Rap': 180, '70s': 170, '80s': 180, '90s': 180,
+  '2010s': 170, 'Throwbacks': 140, 'Latin Pop': 160, 'Banda & Norteño': 130,
+  'Salsa': 140, 'Merengue': 120, 'Boleros': 130, 'Reggaeton': 140,
 };
 const PICKED_HISTORY_RATIO = 0.25; // picked bucket is ~25% the size of the shown cap, but stickier
 
@@ -1950,19 +1950,26 @@ const GENRE_SEARCH_TERMS = {
     "taylor swift", "ed sheeran", "lionel richie",
     "celine dion", "elton john", "lady gaga",
     "ariana grande", "justin timberlake", "dua lipa",
-    "rihanna", "katy perry", "shakira", "selena gomez"
+    "rihanna", "katy perry", "shakira", "selena gomez",
+    "christina aguilera", "britney spears", "jennifer lopez",
+    "avril lavigne", "kelly clarkson", "pink", "usher",
+    "alicia keys", "john legend", "sam smith", "meghan trainor"
   ], countries: ["US"] },
 
   "Rock": {
     termsEN: [
       "bon jovi", "guns n roses", "led zeppelin", "queen", "aerosmith",
       "the rolling stones", "van halen", "journey", "def leppard", "pink floyd",
-      "the police", "u2", "a-ha", "george michael", "phil collins"
+      "the police", "u2", "a-ha", "george michael", "phil collins",
+      "bruce springsteen", "foo fighters", "green day",
+      "the beatles", "the doors", "creedence clearwater revival",
+      "tom petty", "rem", "ac dc"
     ],
     termsES: [
       "mana", "soda stereo", "cafe tacuba", "los fabulosos cadillacs",
       "hombres g", "enanitos verdes", "heroes del silencio", "jaguares",
-      "molotov", "caifanes", "el tri", "fobia", "la ley", "bunbury", "mecano"
+      "molotov", "caifanes", "el tri", "fobia", "la ley", "bunbury", "mecano",
+      "divididos", "los prisioneros", "aterciopelados", "zoe rock", "babasónicos"
     ],
     countries: ["US","MX"]
   },
@@ -1972,14 +1979,19 @@ const GENRE_SEARCH_TERMS = {
     "marvin gaye", "usher", "alicia keys",
     "boyz ii men", "tlc", "en vogue",
     "mary j blige", "janet jackson", "ne-yo",
-    "monica", "john legend", "maxwell"
+    "monica", "john legend", "maxwell",
+    "toni braxton", "brian mcknight", "keith sweat",
+    "joe singer", "erykah badu", "musiq soulchild",
+    "tank rnb", "anita baker", "luther vandross"
   ], countries: ["US"] },
 
   "Disney Classics": { terms: [
     "the little mermaid soundtrack", "beauty and the beast songs",
     "lion king songs", "aladdin songs", "frozen soundtrack",
     "moana soundtrack", "tangled soundtrack", "encanto soundtrack",
-    "mulan soundtrack", "pocahontas soundtrack"
+    "mulan soundtrack", "pocahontas soundtrack",
+    "coco disney soundtrack", "brave disney soundtrack",
+    "princess and the frog soundtrack", "sleeping beauty disney songs"
   ], countries: ["US"] },
 
   "Country": { terms: [
@@ -1987,7 +1999,11 @@ const GENRE_SEARCH_TERMS = {
     "garth brooks", "shania twain", "willie nelson",
     "george strait", "reba mcentire", "carrie underwood",
     "tim mcgraw", "faith hill", "brad paisley",
-    "blake shelton", "luke bryan", "miranda lambert"
+    "blake shelton", "luke bryan", "miranda lambert",
+    "kenny chesney", "toby keith", "alan jackson",
+    "vince gill", "trisha yearwood", "patsy cline",
+    "loretta lynn", "tammy wynette", "hank williams",
+    "jason aldean", "darius rucker", "jimmy buffett"
   ], countries: ["US"] },
 
   "Hip-Hop/Rap": { terms: [
@@ -1995,7 +2011,10 @@ const GENRE_SEARCH_TERMS = {
     "jay z", "lil wayne", "kanye west",
     "nas", "dmx", "50 cent", "snoop dogg",
     "drake", "kendrick lamar", "nicki minaj",
-    "missy elliott", "lauryn hill", "queen latifah", "post malone"
+    "missy elliott", "lauryn hill", "queen latifah", "post malone",
+    "outkast", "ludacris", "wyclef jean", "fugees",
+    "busta rhymes", "fat joe", "ja rule", "eve rapper",
+    "da brat", "mc lyte"
   ], countries: ["US"] },
 
   "70s": {
@@ -2003,12 +2022,17 @@ const GENRE_SEARCH_TERMS = {
       "fleetwood mac", "the eagles", "elton john 70s", "david bowie 70s",
       "bee gees", "abba", "queen 70s", "stevie wonder 70s",
       "donna summer", "earth wind fire", "cat stevens",
-      "billy joel 70s", "hall and oates 70s", "carole king", "al green 70s"
+      "billy joel 70s", "hall and oates 70s", "carole king", "al green 70s",
+      "bruce springsteen 70s", "marvin gaye 70s", "curtis mayfield",
+      "gladys knight", "diana ross 70s", "roberta flack",
+      "barry white", "commodores", "james taylor", "carly simon"
     ],
     termsES: [
       "jose jose 70s", "juan gabriel 70s", "camilo sesto",
       "roberto carlos 70s", "raphael 70s", "jose luis rodriguez",
-      "rocio durcal 70s", "jose feliciano 70s", "pimpinela"
+      "rocio durcal 70s", "jose feliciano 70s", "pimpinela",
+      "los angeles negros", "pastor lopez", "leo dan",
+      "alberto cortez", "dyango", "nicola di bari"
     ],
     countries: ["US","MX"]
   },
@@ -2019,12 +2043,17 @@ const GENRE_SEARCH_TERMS = {
       "bon jovi 80s", "cyndi lauper", "duran duran",
       "whitney houston 80s", "tina turner 80s", "bruce springsteen 80s",
       "u2 80s", "george michael 80s", "culture club",
-      "a-ha", "phil collins 80s", "hall and oates 80s"
+      "a-ha", "phil collins 80s", "hall and oates 80s",
+      "rick springfield", "pat benatar", "huey lewis",
+      "wham", "eurythmics", "blondie", "talking heads",
+      "simple minds", "men at work", "lionel richie 80s", "foreigner"
     ],
     termsES: [
       "mecano", "flans", "timbiriche", "pandora",
       "daniela romo", "yuri 80s", "alaska y dinarama",
-      "virus argentina", "los enanitos verdes 80s", "soda stereo 80s"
+      "virus argentina", "los enanitos verdes 80s", "soda stereo 80s",
+      "menudo", "los yonics", "magneto", "kabah", "los bukis 80s",
+      "marisela", "lucero 80s", "emmanuel"
     ],
     countries: ["US","MX"]
   },
@@ -2034,13 +2063,19 @@ const GENRE_SEARCH_TERMS = {
       "backstreet boys", "tlc", "no doubt", "spice girls", "nsync",
       "destiny's child", "alanis morissette", "britney spears",
       "salt n pepa", "ace of base", "shania twain 90s",
-      "mariah carey 90s", "boyz ii men 90s", "will smith 90s"
+      "mariah carey 90s", "boyz ii men 90s", "will smith 90s",
+      "whitney houston 90s", "celine dion 90s", "michael bolton",
+      "bryan adams", "savage garden", "matchbox twenty",
+      "third eye blind", "goo goo dolls", "sheryl crow", "jewel"
     ],
     termsES: [
       "mana 90s", "cafe tacuba 90s", "maldita vecindad",
       "selena quintanilla", "ricky martin 90s",
       "alejandro sanz 90s", "los del rio", "fobia 90s",
-      "la mosca tse tse", "illya kuryaki"
+      "la mosca tse tse", "illya kuryaki",
+      "gloria estefan 90s", "paulina rubio 90s",
+      "luis miguel 90s", "enrique iglesias 90s",
+      "cristian castro 90s", "ov7", "magneto 90s", "kabah 90s"
     ],
     countries: ["US","MX"]
   },
@@ -2050,7 +2085,10 @@ const GENRE_SEARCH_TERMS = {
     "taylor swift 2010s", "rihanna 2010s", "katy perry 2010s",
     "justin bieber 2010s", "one direction", "carly rae jepsen",
     "pharrell williams", "sam smith", "meghan trainor",
-    "shawn mendes", "lizzo", "post malone 2010s"
+    "shawn mendes", "lizzo", "post malone 2010s",
+    "maroon 5", "imagine dragons", "coldplay 2010s",
+    "gotye", "passenger music", "hozier", "the lumineers",
+    "avicii", "david guetta", "pitbull", "flo rida"
   ], countries: ["US"] },
 
   "Throwbacks": { terms: [
@@ -2058,7 +2096,10 @@ const GENRE_SEARCH_TERMS = {
     "ray charles", "sam cooke", "chuck berry",
     "the temptations", "the supremes", "smokey robinson",
     "buddy holly", "bobby darin", "fats domino",
-    "little richard", "the four tops", "the everly brothers"
+    "little richard", "the four tops", "the everly brothers",
+    "peggy lee", "doris day", "dean martin",
+    "tony bennett", "perry como", "bing crosby",
+    "johnny mathis", "andy williams", "patti page"
   ], countries: ["US"] },
 
   "Latin Pop": { terms: [
@@ -2066,14 +2107,20 @@ const GENRE_SEARCH_TERMS = {
     "gloria estefan", "marc anthony", "jennifer lopez",
     "alejandro sanz", "juanes", "thalia",
     "ana gabriel", "cristian castro", "paulina rubio",
-    "sin bandera", "reik", "camila latin pop"
+    "sin bandera", "reik", "camila latin pop",
+    "alejandro fernandez", "chayanne", "luis fonsi",
+    "sebastian yatra", "carlos rivera", "ha-ash",
+    "jesse y joy", "natalia lafourcade", "mon laferte", "carla morrison"
   ], countries: ["US","MX"] },
 
   "Banda & Norteño": { terms: [
     "los bukis", "bronco banda", "banda ms",
     "pepe aguilar", "vicente fernandez", "intocable",
     "los yonics", "ramon ayala", "joan sebastian",
-    "conjunto primavera", "los tigres del norte", "lupillo rivera"
+    "conjunto primavera", "los tigres del norte", "lupillo rivera",
+    "valentin elizalde", "el chapo de sinaloa",
+    "jenni rivera", "espinoza paz", "banda el recodo",
+    "los tucanes de tijuana", "norteño hits"
   ], countries: ["MX","US"] },
 
   "Salsa": { terms: [
@@ -2083,7 +2130,9 @@ const GENRE_SEARCH_TERMS = {
     "tito puente", "oscar d'leon", "eddie santiago",
     "el gran combo", "frankie ruiz", "victor manuelle",
     "la india salsa", "ismael rivera", "cheo feliciano",
-    "johnny pacheco", "andy montanez"
+    "johnny pacheco", "andy montanez",
+    "jerry rivera", "tito nieves", "rey ruiz",
+    "grupo niche", "maelo ruiz", "tony vega"
   ], countries: ["US","MX"] },
 
   "Merengue": { terms: [
@@ -2092,7 +2141,8 @@ const GENRE_SEARCH_TERMS = {
     "los hermanos rosario", "toño rosario",
     "fernando villalona", "eddy herrera",
     "milly quezada", "bonny cepeda", "olga tanon merengue",
-    "kinito mendez"
+    "kinito mendez", "elvis crespo", "proyecto uno",
+    "los toros band", "jossie estepa"
   ], countries: ["MX","US"] },
 
   "Boleros": { terms: [
@@ -2100,7 +2150,9 @@ const GENRE_SEARCH_TERMS = {
     "agustin lara boleros", "luis miguel boleros",
     "chavela vargas", "pedro vargas", "lucho gatica",
     "trio los panchos", "ibrahim ferrer",
-    "bobby capo", "raphael boleros", "marco antonio solis boleros"
+    "bobby capo", "raphael boleros", "marco antonio solis boleros",
+    "vikki carr", "eydie gorme", "julio iglesias boleros",
+    "maria dolores pradera", "libertad lamarque", "antonio machin"
   ], countries: ["MX","US"] },
 
   "Reggaeton": { terms: [
@@ -2109,7 +2161,8 @@ const GENRE_SEARCH_TERMS = {
     "nicky jam", "plan b reggaeton",
     "zion y lennox", "yandel", "farruko",
     "ivy queen", "ozuna", "maluma", "karol g",
-    "alexis y fido"
+    "alexis y fido", "de la ghetto", "jowell y randy",
+    "reykon", "sech", "jhay cortez"
   ], countries: ["MX","US"] }
 };
 
@@ -2120,66 +2173,95 @@ const LEGEND_ARTISTS = new Set([
   'bruno mars','adele','taylor swift','ed sheeran','rihanna','katy perry',
   'lionel richie','celine dion','elton john','lady gaga','ariana grande',
   'justin timberlake','dua lipa','shakira','selena gomez',
+  'christina aguilera','britney spears','jennifer lopez','avril lavigne',
+  'kelly clarkson','pink','usher','alicia keys','john legend','sam smith','meghan trainor',
   // Rock EN
   'bon jovi','guns n roses','led zeppelin','queen','aerosmith','the rolling stones',
   'van halen','journey','def leppard','pink floyd','the police','u2','a-ha',
-  'george michael','phil collins',
+  'george michael','phil collins','bruce springsteen','foo fighters','green day',
+  'the beatles','the doors','creedence clearwater revival','tom petty','rem','ac dc',
   // Rock ES
   'mana','soda stereo','cafe tacuba','los fabulosos cadillacs','hombres g','enanitos verdes',
   'heroes del silencio','jaguares','molotov','caifanes','el tri','fobia','la ley','bunbury','mecano',
+  'divididos','los prisioneros','aterciopelados','zoe','babasónicos','babasónicos',
   // R&B
   'aretha franklin','stevie wonder','al green','marvin gaye','usher','alicia keys',
   'boyz ii men','tlc','en vogue','mary j blige','janet jackson','ne-yo',
-  'monica','john legend','maxwell',
+  'monica','john legend','maxwell','toni braxton','brian mcknight','keith sweat',
+  'erykah badu','musiq soulchild','anita baker','luther vandross',
   // Country
   'johnny cash','dolly parton','kenny rogers','garth brooks','shania twain','willie nelson',
   'george strait','reba mcentire','carrie underwood','tim mcgraw','faith hill',
   'brad paisley','blake shelton','luke bryan','miranda lambert',
+  'kenny chesney','toby keith','alan jackson','vince gill','trisha yearwood',
+  'patsy cline','loretta lynn','tammy wynette','hank williams','jason aldean',
+  'darius rucker','jimmy buffett',
   // Hip-Hop
   'notorious b.i.g.','2pac','tupac','eminem','jay-z','lil wayne','kanye west',
   'nas','dmx','50 cent','snoop dogg','drake','kendrick lamar',
   'nicki minaj','missy elliott','lauryn hill','queen latifah','post malone',
-  // 80s extra
-  'cyndi lauper','duran duran','tina turner','bruce springsteen',
-  'culture club','hall and oates',
+  'outkast','ludacris','wyclef jean','fugees','busta rhymes',
+  'fat joe','ja rule','eve','da brat','mc lyte',
+  // 80s EN
+  'cyndi lauper','duran duran','tina turner','culture club','hall and oates',
+  'rick springfield','pat benatar','huey lewis','wham','eurythmics',
+  'blondie','talking heads','simple minds','men at work','foreigner',
   // 80s ES
   'flans','timbiriche','pandora','daniela romo','yuri','alaska','virus',
+  'menudo','magneto','kabah','marisela','lucero','emmanuel',
   // 90s EN
   'backstreet boys','no doubt','spice girls','nsync',"destiny's child",
-  'alanis morissette','britney spears','ace of base',
+  'alanis morissette','britney spears','ace of base','michael bolton','bryan adams',
+  'savage garden','matchbox twenty','third eye blind','goo goo dolls','sheryl crow','jewel',
   // 90s ES
   'maldita vecindad','la mosca tse tse','selena quintanilla',
   'ricky martin','alejandro sanz','illya kuryaki',
-  // 70s
+  'gloria estefan','paulina rubio','luis miguel','enrique iglesias',
+  'cristian castro','ov7',
+  // 70s EN
   'fleetwood mac','the eagles','david bowie','bee gees','abba',
   'donna summer','earth wind fire','cat stevens','billy joel',
-  'carole king','camilo sesto','roberto carlos','raphael','jose luis rodriguez','rocio durcal',
+  'carole king','diana ross','gladys knight','roberta flack','barry white',
+  'commodores','james taylor','carly simon','curtis mayfield',
+  // 70s ES
+  'camilo sesto','roberto carlos','raphael','jose luis rodriguez','rocio durcal',
+  'los angeles negros','pastor lopez','leo dan','alberto cortez','dyango',
   // Throwbacks
   'frank sinatra','nat king cole','elvis presley','ray charles','sam cooke',
   'chuck berry','the temptations','the supremes','smokey robinson',
   'buddy holly','bobby darin','fats domino','little richard','the four tops',
+  'peggy lee','doris day','dean martin','tony bennett','perry como',
+  'bing crosby','johnny mathis','andy williams','patti page',
   // Latin Pop
   'enrique iglesias','gloria estefan','marc anthony','jennifer lopez',
   'juanes','thalia','ana gabriel','cristian castro','paulina rubio',
-  'sin bandera','reik','camila',
+  'sin bandera','reik','camila','alejandro fernandez','chayanne','luis fonsi',
+  'sebastian yatra','carlos rivera','ha-ash','jesse y joy',
+  'natalia lafourcade','mon laferte','carla morrison',
   // Banda & Norteño
   'los bukis','bronco','banda ms','pepe aguilar','vicente fernandez',
   'intocable','los yonics','ramon ayala','joan sebastian',
   'conjunto primavera','los tigres del norte','lupillo rivera',
+  'valentin elizalde','el chapo de sinaloa','jenni rivera',
+  'espinoza paz','banda el recodo','los tucanes de tijuana',
   // Salsa
   'celia cruz','gilberto santa rosa','willie colon','hector lavoe','ruben blades',
   'tito puente',"oscar d'leon",'eddie santiago','el gran combo','frankie ruiz','victor manuelle',
   'la india','ismael rivera','cheo feliciano','johnny pacheco','andy montanez',
+  'jerry rivera','tito nieves','rey ruiz','grupo niche','maelo ruiz','tony vega',
   // Merengue
   'juan luis guerra','wilfrido vargas','johnny ventura','sergio vargas',
   'fernando villalona','eddy herrera','milly quezada','bonny cepeda','olga tanon','kinito mendez',
+  'elvis crespo','proyecto uno','los toros band','jossie estepa',
   // Boleros
   'jose jose','armando manzanero','agustin lara','luis miguel','chavela vargas',
   'pedro vargas','lucho gatica','trio los panchos','ibrahim ferrer','bobby capo',
-  'marco antonio solis',
+  'marco antonio solis','vikki carr','eydie gorme','julio iglesias',
+  'maria dolores pradera','libertad lamarque','antonio machin',
   // Reggaeton
   'daddy yankee','don omar','tego calderon','j balvin','bad bunny','nicky jam',
   'zion y lennox','yandel','farruko','ivy queen','ozuna','maluma','karol g','alexis y fido',
+  'de la ghetto','jowell y randy','reykon','sech','jhay cortez',
 ]);
 
 const ERA_RANGES = {
@@ -2302,10 +2384,11 @@ window.startGame = async () => {
   const players = [...inputs].map(i => i.value.trim()).filter(Boolean);
   if (!players.length) return showToast('Add at least one player!');
 
+  const BILINGUAL = new Set(['Rock', '70s', '80s', '90s', 'Latin Pop', 'Banda & Norteño']);
   const selectedGenres = getSelectedGenres().filter(g => {
-    if (G.lang === 'EN') return GENRES.EN.includes(g);
-    if (G.lang === 'ES') return GENRES.ES.includes(g);
-    return true; // BOTH — all genres valid
+    if (G.lang === 'EN') return GENRES.EN.includes(g); // EN-only + bilingual
+    if (G.lang === 'ES') return GENRES.ES.includes(g) || BILINGUAL.has(g); // ES-only + bilingual
+    return true; // BOTH — all valid
   });
   if (!selectedGenres.length) return showToast('Pick at least one genre!');
   console.log('[KK] Starting game with genres:', selectedGenres);
@@ -2325,6 +2408,7 @@ window.startGame = async () => {
   G.groupId = groupId;
   G.currentRound = 0;
   G.usedGenres = [];
+  G.skippedGenres = [];
   G.rounds = [];
   G.history = [];
   G.gameId = id;
@@ -2503,17 +2587,28 @@ async function loadRound() {
 
 function pickGenre() {
   const allGenres = [...GENRES.EN, ...GENRES.ES];
-  // Explicit length check — || would treat [] as falsy and fall back to all genres
   const pool = (G.selectedGenres && G.selectedGenres.length > 0)
     ? G.selectedGenres
     : allGenres;
 
-  let available = pool.filter(g => !G.usedGenres.includes(g));
+  const skipped = G.skippedGenres || [];
+
+  // First try: exclude both used and recently skipped genres
+  let available = pool.filter(g => !G.usedGenres.includes(g) && !skipped.includes(g));
+
+  // Second try: allow skipped back in if nothing else available
+  if (!available.length) {
+    available = pool.filter(g => !G.usedGenres.includes(g));
+  }
+
+  // Third try: full reset — all genres used, start fresh
   if (!available.length) {
     G.usedGenres = G.currentGenre ? [G.currentGenre] : [];
+    G.skippedGenres = [];
     available = pool.filter(g => g !== G.currentGenre);
   }
-  if (!available.length) available = pool; // last resort
+
+  if (!available.length) available = pool;
   return available[Math.floor(Math.random() * available.length)];
 }
 
@@ -3337,10 +3432,13 @@ function showRoundRecap(roundHistory, onContinue) {
 }
 
 window.skipGenre = async () => {
-  if (G.hostToken && G.hostToken !== effectiveToken(_gameId)) return; // only host skips
-  G.usedGenres = G.usedGenres.filter(g => g !== G.currentGenre);
+  if (G.hostToken && G.hostToken !== effectiveToken(_gameId)) return;
+  const skipped = G.currentGenre;
+  G.usedGenres = G.usedGenres.filter(g => g !== skipped);
+  if (!G.skippedGenres) G.skippedGenres = [];
+  if (!G.skippedGenres.includes(skipped)) G.skippedGenres.push(skipped);
   G.currentRound--;
-  showToast(`Skipping ${G.currentGenre}…`);
+  showToast(`Skipping ${skipped}…`);
   await loadRound();
 };
 function extractYouTubeId(url) {
@@ -3617,7 +3715,7 @@ window.playAgain = () => {
     players: [], totalRounds: 5, lang: 'EN', currentRound: 0,
     currentGenre: '', usedGenres: [], rounds: [], activePlayer: null,
     history: [], gameStatus: null, multiDevice: false, karaokeQueue: null,
-    groupId: null, selectedGenres: []
+    groupId: null, selectedGenres: [], skippedGenres: []
   };
   const url = new URL(window.location.href);
   url.searchParams.delete('game');
