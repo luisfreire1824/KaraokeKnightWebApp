@@ -1261,6 +1261,19 @@
   .yt-searching {
     text-align: center; padding: 2rem; color: var(--muted); font-size: 0.85rem;
   }
+
+  /* ── STICKY PICKS PANEL ── */
+  .picks-panel-sticky {
+    position: sticky;
+    top: 57px; /* below sticky genre bar */
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    margin: 0 -1.1rem 0.75rem;
+    padding: 0 1.1rem;
+    z-index: 9;
+  }
+  .picks-panel-sticky .picks-panel { padding-bottom: 0.5rem; }
+
   .tester-song {
     display: flex; align-items: flex-start; gap: 0.6rem;
     padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.78rem;
@@ -1868,10 +1881,34 @@ function setGameId(id) {
     const queueDiffers = JSON.stringify(remote.karaokeQueue) !== JSON.stringify(G.karaokeQueue);
 
     if (!isHost || picksDiffer || skipsDiffer || playersDiffer || statusDiffers || multiDeviceDiffers || queueDiffers) {
-      // Preserve local karaokeQueue links before overwriting G
+      // Preserve local state before overwriting
       const localQueue = G.karaokeQueue;
+      const localPicks = G.rounds?.at(-1)?.picks ? { ...G.rounds.at(-1).picks } : null;
+      const localSkips = G.rounds?.at(-1)?.skips ? { ...G.rounds.at(-1).skips } : null;
+      const localRound = G.currentRound;
+
       G = remote;
-      // Merge queue — don't lose links either device has added
+
+      // Merge picks — if local device had a pick that remote doesn't, keep it
+      // This prevents race conditions where a save echo overwrites a pick
+      const remoteLastRound = G.rounds?.at(-1);
+      if (remoteLastRound && localPicks && G.currentRound === localRound) {
+        Object.entries(localPicks).forEach(([player, song]) => {
+          if (song && !remoteLastRound.picks[player]) {
+            remoteLastRound.picks[player] = song;
+          }
+        });
+        if (localSkips) {
+          if (!remoteLastRound.skips) remoteLastRound.skips = {};
+          Object.entries(localSkips).forEach(([player, val]) => {
+            if (val && !remoteLastRound.skips[player] && !remoteLastRound.picks[player]) {
+              remoteLastRound.skips[player] = val;
+            }
+          });
+        }
+      }
+
+      // Merge karaokeQueue — don't lose links either device has added
       if (localQueue && G.karaokeQueue) {
         Object.keys(localQueue).forEach(roundNum => {
           if (!G.karaokeQueue[roundNum]) return;
@@ -3044,11 +3081,19 @@ function renderRound() {
       </div>`;
   }).join('');
 
-  // Picks panel
-  const picksHtml = G.players.map(p => {
+  // Picks panel — always show, include pending players
+  const fullPicksHtml = G.players.map(p => {
     const pick = round.picks[p];
     const skipped = round.skips?.[p];
-    if (!pick && !skipped) return '';
+    const isPending = !pick && !skipped;
+    if (isPending) return `
+      <div class="picks-panel-row">
+        <div class="picks-panel-art" style="display:flex;align-items:center;justify-content:center;font-size:1.1rem;opacity:0.4">⏳</div>
+        <div class="picks-panel-info">
+          <div class="picks-panel-song" style="color:var(--muted);font-style:italic">Still picking…</div>
+          <div class="picks-panel-meta"><span class="picks-panel-player">${esc(p)}</span></div>
+        </div>
+      </div>`;
     if (skipped) return `
       <div class="picks-panel-row">
         <div class="picks-panel-art" style="display:flex;align-items:center;justify-content:center;font-size:1.1rem">—</div>
@@ -3070,8 +3115,8 @@ function renderRound() {
       </div>`;
   }).join('');
 
-  const anyPicks = G.players.some(p => round.picks[p] || round.skips?.[p]);
   const picksCount = G.players.filter(p => round.picks[p] || round.skips?.[p]).length;
+  const totalPlayers = G.players.length;
 
   const shownIds = new Set(round.shown.map(s => s.trackId));
   const cachedPools = getCachedPools(G.currentRound - 1);
@@ -3102,15 +3147,15 @@ function renderRound() {
     </div>
     <div class="player-tabs">${tabs}</div>
 
-    ${anyPicks ? `
-    <details style="margin-bottom:0.75rem">
-      <summary style="cursor:pointer;font-size:0.72rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;list-style:none;display:flex;align-items:center;gap:0.4rem">
-        🎵 See picks (${picksCount})
+    <details class="picks-panel-sticky" ${picksCount > 0 ? 'open' : ''}>
+      <summary style="cursor:pointer;font-size:0.72rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;list-style:none;display:flex;align-items:center;gap:0.4rem;padding:0.5rem 0">
+        🎵 Picks (${picksCount}/${totalPlayers})
+        <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;margin-left:auto;font-size:0.68rem">${picksCount < totalPlayers ? `⏳ ${totalPlayers - picksCount} pending` : '✅ All in'}</span>
       </summary>
-      <div class="picks-panel" style="margin-top:0.5rem">
-        ${picksHtml || '<div class="picks-panel-empty">No picks yet</div>'}
+      <div class="picks-panel" style="margin-top:0.25rem">
+        ${fullPicksHtml}
       </div>
-    </details>` : ''}
+    </details>
 
     ${songsSectionLabel}
     ${songCards}
@@ -3311,40 +3356,51 @@ function checkAllPlayersDone() {
   }
 }
 
+let _nextRoundLock = false;
 window.nextRound = async () => {
+  if (_nextRoundLock) return;
   if (G.hostToken && G.hostToken !== effectiveToken(_gameId)) return;
-  const round = G.rounds[G.currentRound - 1];
+  _nextRoundLock = true;
+  try {
+    const round = G.rounds[G.currentRound - 1];
 
-  const roundHistory = {
-    round: G.currentRound,
-    genre: round.genre,
-    picks: G.players.map(p => ({
-      player: p,
-      song: round.picks[p] || null,
-      skipped: !!round.skips?.[p]
-    }))
-  };
-  G.history.push(roundHistory);
+    const roundHistory = {
+      round: G.currentRound,
+      genre: round.genre,
+      picks: G.players.map(p => ({
+        player: p,
+        song: round.picks[p] || null,
+        skipped: !!round.skips?.[p]
+      }))
+    };
 
-  stopPreview();
+    // Dedup — don't push the same round twice if nextRound fires more than once
+    if (!G.history.some(h => h.round === G.currentRound)) {
+      G.history.push(roundHistory);
+    }
 
-  // Write shown songs to group history (fire-and-forget, don't await)
-  const shownIds = round.shown.map(s => s.trackId);
-  addToGroupHistory(G.groupId, round.genre, shownIds);
+    stopPreview();
 
-  _myPlayer = _myPlayer || G.players[0];
+    // Write shown songs to group history (fire-and-forget)
+    const shownIds = round.shown.map(s => s.trackId);
+    addToGroupHistory(G.groupId, round.genre, shownIds);
 
-  if (G.currentRound >= G.totalRounds) {
-    G.gameStatus = 'complete';
-    await saveState();
-    showResults();
-  } else {
-    G.gameStatus = 'recap';
-    await saveState();
-    showRoundRecap(roundHistory, async () => {
-      G.gameStatus = 'playing';
-      await loadRound();
-    });
+    _myPlayer = _myPlayer || G.players[0];
+
+    if (G.currentRound >= G.totalRounds) {
+      G.gameStatus = 'complete';
+      await saveState();
+      showResults();
+    } else {
+      G.gameStatus = 'recap';
+      await saveState();
+      showRoundRecap(roundHistory, async () => {
+        G.gameStatus = 'playing';
+        await loadRound();
+      });
+    }
+  } finally {
+    _nextRoundLock = false;
   }
 };
 
@@ -3420,10 +3476,37 @@ function showRoundRecap(roundHistory, onContinue) {
     nextBtn.disabled = false;
     nextBtn.textContent = 'Next Genre →';
     nextBtn.onclick = async () => {
-      nextBtn.onclick = () => nextRound(); // restore default
+      nextBtn.onclick = () => nextRound();
       skipBtn.style.display = '';
+      document.getElementById('reopen-round-btn')?.remove();
       await onContinue();
     };
+    // Add reopen button for host to go back if something looks wrong
+    const existingReopen = document.getElementById('reopen-round-btn');
+    if (existingReopen) existingReopen.remove();
+    const reopenBtn = document.createElement('button');
+    reopenBtn.id = 'reopen-round-btn';
+    reopenBtn.textContent = '↩ Reopen Round';
+    reopenBtn.style.cssText = 'font-size:0.72rem;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:8px;padding:0.35rem 0.75rem;cursor:pointer;margin-right:auto;';
+    reopenBtn.onclick = async () => {
+      // Restore playing state but keep the round data (picks, shown songs) intact
+      G.gameStatus = 'playing';
+      G.history.pop(); // remove recap entry — will be re-added when host advances again
+      // Clear karaokeQueue for this round since recap didn't complete
+      const reopenedRound = G.currentRound;
+      if (G.karaokeQueue?.[reopenedRound]) delete G.karaokeQueue[reopenedRound];
+      await saveState();
+      skipBtn.style.display = '';
+      nextBtn.textContent = 'Next Round →';
+      nextBtn.disabled = false;
+      nextBtn.onclick = () => nextRound();
+      reopenBtn.remove();
+      document.getElementById('all-done-banner')?.remove();
+      renderRound(); // re-render with existing picks intact
+      checkAllPlayersDone(); // restore green button if everyone already picked
+    };
+    const bottomBar = document.querySelector('.bottom-bar');
+    bottomBar.insertBefore(reopenBtn, bottomBar.firstChild);
   } else {
     nextBtn.disabled = true;
     nextBtn.textContent = 'Waiting for host…';
@@ -3450,6 +3533,13 @@ function extractYouTubeId(url) {
 }
 
 function showResults() {
+  // Dedup history by round number — safety net against double-push bug
+  const seen = new Set();
+  G.history = G.history.filter(r => {
+    if (seen.has(r.round)) return false;
+    seen.add(r.round);
+    return true;
+  });
   // Initialize per-round queue from history if not already built
   if (!G.karaokeQueue) G.karaokeQueue = {};
   G.history.forEach(r => {
